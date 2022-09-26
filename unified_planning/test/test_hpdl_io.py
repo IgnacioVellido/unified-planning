@@ -20,12 +20,16 @@ import pytest
 import unified_planning
 from unified_planning.engines import PlanGenerationResultStatus
 from unified_planning.io import PDDLReader, PDDLWriter
+from unified_planning.io.hpdl_reader import HPDLReader
 from unified_planning.model.problem_kind import full_numeric_kind
 from unified_planning.model.types import _UserType
 from unified_planning.shortcuts import *
 from unified_planning.test import (
-    TestCase, main, skipIfNoOneshotPlannerForProblemKind,
-    skipIfNoOneshotPlannerSatisfiesOptimalityGuarantee)
+    TestCase,
+    main,
+    skipIfNoOneshotPlannerForProblemKind,
+    skipIfNoOneshotPlannerSatisfiesOptimalityGuarantee,
+)
 from unified_planning.test.examples import get_example_problems
 
 FILE_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -38,10 +42,10 @@ class TestHpdlIO(TestCase):
         # self.problems = get_example_problems()
 
     def test_hpdl_reader(self):
-        reader = PDDLReader()
+        reader = HPDLReader()
 
-        domain_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "domain.hddl")
-        problem_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "problem.hddl")
+        domain_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "domain.hpdl")
+        problem_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "problem.hpdl")
         problem = reader.parse_problem(domain_filename, problem_filename)
 
         assert isinstance(problem, up.model.htn.HierarchicalProblem)
@@ -83,5 +87,5 @@ class TestHpdlIO(TestCase):
             [method.name for method in problem.methods],
         )
         self.assertEqual(1, len(problem.method("avatar_move_up").subtasks))
-        self.assertEqual(2, len(problem.method("avatar_wall_stepback").subtasks))
+        self.assertEqual(4, len(problem.method("avatar_wall_stepback").subtasks))
         # self.assertEqual(2, len(problem.task_network.subtasks))
