@@ -62,9 +62,11 @@ class HPDLGrammar:
         constants_def = (
             Suppress("(")
             + ":constants"
-            + OneOrMore(
-                Group(Group(OneOrMore(name)) + Optional(Suppress("-") + name))
-            ).setResultsName("constants")
+            + Optional(
+                OneOrMore(
+                    Group(Group(OneOrMore(name)) + Optional(Suppress("-") + name))
+                ).setResultsName("constants")
+            )
             + Suppress(")")
         )
 
@@ -153,14 +155,12 @@ class HPDLGrammar:
             # + parameters
             # + Suppress(")")
             # + ":task"
-
             # + nestedExpr().setResultsName("task") # TODO: Task is parent, Needs this variable to be set?
-
             # TODO: Set order
             # + Optional(
             #     ":ordered-subtasks" + nestedExpr().setResultsName("ordered-subtasks")
             # )
-            + ":tasks" 
+            + ":tasks"
             # TODO: Include :inline? Are they needed
             + nestedExpr().setResultsName("subtasks")
             + Suppress(")")
@@ -685,7 +685,9 @@ class HPDLReader:
         domain_res = self._pp_domain.parseFile(domain_filename)
 
         problem: up.model.Problem
-        if ":hierarchy" in set(domain_res.get("features", [])) or ":htn-expansion" in set(domain_res.get("features", [])):
+        if ":hierarchy" in set(
+            domain_res.get("features", [])
+        ) or ":htn-expansion" in set(domain_res.get("features", [])):
             problem = htn.HierarchicalProblem(
                 domain_res["name"],
                 self._env,
@@ -775,7 +777,7 @@ class HPDLReader:
             # Methods are defined inside tasks
             for method in task.get("methods", []):
                 # assert isinstance(problem, htn.HierarchicalProblem)
-                method_name = method["name"]
+                method_name = f'{task_name}-{method["name"]}'
                 method_params = OrderedDict()
                 method_preconditions = method.get("preconditions", [])
 
@@ -784,7 +786,7 @@ class HPDLReader:
                     for p in g[0]:
                         method_params[p] = t
 
-                method_model = htn.Method(method_name, method_params)
+                method_model = htn.Method(method_name, task_params)
                 method_model.set_task(task_model)
 
                 for pre in method_preconditions:
@@ -799,7 +801,7 @@ class HPDLReader:
                     subs = self._parse_subtasks(subs, method_model, problem, types_map)
                     for s in subs:
                         method_model.add_subtask(s)
-                problem.add_method(method)
+                problem.add_method(method_model)
 
         for a in domain_res.get("actions", []):
             n = a["name"]
