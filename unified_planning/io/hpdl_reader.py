@@ -563,6 +563,9 @@ class HPDLReader:
         if len(e) == 0:
             return None
         task_name = e[0]
+
+        if task_name == ":inline":
+            return self._parse_inline(e, method, problem, types_map)
         task: Union[htn.Task, up.model.Action]
         if problem.has_task(task_name):
             task = problem.get_task(task_name)
@@ -576,6 +579,27 @@ class HPDLReader:
         ]
         return htn.Subtask(task, *parameters)
 
+    def _parse_inline(
+        self,
+        e,
+        method: typing.Optional[htn.Method],
+        problem: htn.HierarchicalProblem,
+        types_map: Dict[str, up.model.Type],
+    ) -> List[htn.Subtask]:
+        inline_version = 0
+        inline_name = method.name + "_inline"
+
+        # Find the first available name for the inline task
+        # TODO: this is not very efficient; improve it
+        while problem.has_action(f"{inline_name}_{inline_version}"):
+            inline_version += 1
+
+        raise Exception("Inline not implemented")
+        # We need the parameters of the method to be able to parse the inline
+        # Needed to build the task with the inline
+        # TODO: Implement this
+        self._parse_action()
+
     def _parse_subtasks(
         self,
         e,
@@ -587,9 +611,18 @@ class HPDLReader:
         single_task = self._parse_subtask(e, method, problem, types_map)
         if single_task is not None:
             return [single_task]
+
         elif len(e) == 0:
             return []
-        elif e[0] == "and":
+
+        # In HPDL, we dont have the "and" keyword
+        # elif e[0] == "and":
+        #     return [
+        #         subtask
+        #         for e2 in e[1:]
+        #         for subtask in self._parse_subtasks(e2, method, problem, types_map)
+        #     ]
+        elif len(e) >= 1:
             return [
                 subtask
                 for e2 in e[1:]
@@ -672,6 +705,81 @@ class HPDLReader:
                 return False
         return True
 
+    def _parse_action(
+        self,
+        a,
+        problem: up.model.Problem,
+        types_map: Dict[str, up.model.Type],
+        universal_assignments: Dict["up.model.Action", List[ParseResults]],
+        has_actions_cost: bool,
+    ):
+        n = a["name"]
+        a_params = OrderedDict()
+        for g in a.get("params", []):
+            t = types_map[g[1] if len(g) > 1 else "object"]
+            for p in g[0]:
+                a_params[p] = t
+        if "duration" in a:
+            dur_act = up.model.DurativeAction(n, a_params, self._env)
+            dur = a["duration"][0]
+            if dur[0] == "=":
+                dur.pop(0)
+                dur.pop(0)
+                dur_act.set_fixed_duration(
+                    self._parse_exp(problem, dur_act, types_map, {}, dur)
+                )
+            elif dur[0] == "and":
+                upper = None
+                lower = None
+                for j in range(1, len(dur)):
+                    if dur[j][0] == ">=" and lower is None:
+                        dur[j].pop(0)
+                        dur[j].pop(0)
+                        lower = self._parse_exp(problem, dur_act, types_map, {}, dur[j])
+                    elif dur[j][0] == "<=" and upper is None:
+                        dur[j].pop(0)
+                        dur[j].pop(0)
+                        upper = self._parse_exp(problem, dur_act, types_map, {}, dur[j])
+                    else:
+                        raise SyntaxError(
+                            f"Not able to handle duration constraint of action {n}"
+                        )
+                if lower is None or upper is None:
+                    raise SyntaxError(
+                        f"Not able to handle duration constraint of action {n}"
+                    )
+                d = up.model.ClosedDurationInterval(lower, upper)
+                dur_act.set_duration_constraint(d)
+            else:
+                raise SyntaxError(
+                    f"Not able to handle duration constraint of action {n}"
+                )
+            cond = a["cond"][0]
+            self._add_condition(problem, dur_act, cond, types_map)
+            eff = a["eff"][0]
+            self._add_timed_effects(
+                problem, dur_act, types_map, universal_assignments, eff
+            )
+            problem.add_action(dur_act)
+            has_actions_cost = has_actions_cost and self._durative_action_has_cost(
+                dur_act
+            )
+        else:
+            act = up.model.InstantaneousAction(n, a_params, self._env)
+            if "pre" in a:
+                act.add_precondition(
+                    self._parse_exp(problem, act, types_map, {}, a["pre"][0])
+                )
+            if "eff" in a:
+                self._add_effect(
+                    problem, act, types_map, universal_assignments, a["eff"][0]
+                )
+            problem.add_action(act)
+            # Do we need to do it here? it comes from _parse_problem method
+            has_actions_cost = has_actions_cost and self._instantaneous_action_has_cost(
+                act
+            )
+
     def parse_problem(
         self, domain_filename: str, problem_filename: typing.Optional[str] = None
     ) -> "up.model.Problem":
@@ -703,9 +811,12 @@ class HPDLReader:
                 initial_defaults={self._tm.BoolType(): self._em.FALSE()},
             )
 
+        # TODO: Maybe we need to make this vars properties of the class
+        # To easily access them in the methods
         types_map: Dict[str, "up.model.Type"] = {}
         object_type_needed: bool = self._check_if_object_type_is_needed(domain_res)
         universal_assignments: Dict["up.model.Action", List[ParseResults]] = {}
+        ##
         for types_list in domain_res.get("types", []):
             # types_list is a List of 1 or 2 elements, where the first one
             # is a List of types, and the second one can be their father,
@@ -777,11 +888,19 @@ class HPDLReader:
             task_model = htn.Task(task_name, task_params)
             problem.add_task(task_model)
 
-            # Methods are defined inside tasks
+        for a in domain_res.get("actions", []):
+            self._parse_action(
+                a, problem, types_map, universal_assignments, has_actions_cost
+            )
+
+        # Methods are defined inside tasks;
+        # we need to parse them after all tasks and actions have been defined
+        # because _parse_subtasks() needs to be able to find them.
+        for task in domain_res.get("tasks", []):
             for method in task.get("methods", []):
                 # assert isinstance(problem, htn.HierarchicalProblem)
-                method_name = f'{task_name}-{method["name"]}' # Methods names are
-                                                              # not unique across tasks
+                method_name = f'{task["name"]}-{method["name"]}'  # Methods names are
+                # not unique across tasks
                 method_params = OrderedDict()
                 method_preconditions = method.get("preconditions", [])
 
@@ -801,82 +920,11 @@ class HPDLReader:
                 #     for s in ord_subs:
                 #         method.add_subtask(s)
                 #     method.set_ordered(*ord_subs)
-                for subs in method.get("tasks", []):
+                for subs in method.get("subtasks", []):
                     subs = self._parse_subtasks(subs, method_model, problem, types_map)
                     for s in subs:
                         method_model.add_subtask(s)
                 problem.add_method(method_model)
-
-        for a in domain_res.get("actions", []):
-            n = a["name"]
-            a_params = OrderedDict()
-            for g in a.get("params", []):
-                t = types_map[g[1] if len(g) > 1 else "object"]
-                for p in g[0]:
-                    a_params[p] = t
-            if "duration" in a:
-                dur_act = up.model.DurativeAction(n, a_params, self._env)
-                dur = a["duration"][0]
-                if dur[0] == "=":
-                    dur.pop(0)
-                    dur.pop(0)
-                    dur_act.set_fixed_duration(
-                        self._parse_exp(problem, dur_act, types_map, {}, dur)
-                    )
-                elif dur[0] == "and":
-                    upper = None
-                    lower = None
-                    for j in range(1, len(dur)):
-                        if dur[j][0] == ">=" and lower is None:
-                            dur[j].pop(0)
-                            dur[j].pop(0)
-                            lower = self._parse_exp(
-                                problem, dur_act, types_map, {}, dur[j]
-                            )
-                        elif dur[j][0] == "<=" and upper is None:
-                            dur[j].pop(0)
-                            dur[j].pop(0)
-                            upper = self._parse_exp(
-                                problem, dur_act, types_map, {}, dur[j]
-                            )
-                        else:
-                            raise SyntaxError(
-                                f"Not able to handle duration constraint of action {n}"
-                            )
-                    if lower is None or upper is None:
-                        raise SyntaxError(
-                            f"Not able to handle duration constraint of action {n}"
-                        )
-                    d = up.model.ClosedDurationInterval(lower, upper)
-                    dur_act.set_duration_constraint(d)
-                else:
-                    raise SyntaxError(
-                        f"Not able to handle duration constraint of action {n}"
-                    )
-                cond = a["cond"][0]
-                self._add_condition(problem, dur_act, cond, types_map)
-                eff = a["eff"][0]
-                self._add_timed_effects(
-                    problem, dur_act, types_map, universal_assignments, eff
-                )
-                problem.add_action(dur_act)
-                has_actions_cost = has_actions_cost and self._durative_action_has_cost(
-                    dur_act
-                )
-            else:
-                act = up.model.InstantaneousAction(n, a_params, self._env)
-                if "pre" in a:
-                    act.add_precondition(
-                        self._parse_exp(problem, act, types_map, {}, a["pre"][0])
-                    )
-                if "eff" in a:
-                    self._add_effect(
-                        problem, act, types_map, universal_assignments, a["eff"][0]
-                    )
-                problem.add_action(act)
-                has_actions_cost = (
-                    has_actions_cost and self._instantaneous_action_has_cost(act)
-                )
 
         if problem_filename is not None:
             problem_res = self._pp_problem.parseFile(problem_filename)
