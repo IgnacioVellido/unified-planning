@@ -34,9 +34,10 @@
 	)
 
 	; Constants -----------------------------------------------------------------
+	; TODO: Define something here to test
 
-	(:constants
-	)
+	; (:constants
+	; )
 
 	; Predicates ----------------------------------------------------------------
 
@@ -71,6 +72,9 @@
 		(counter_object)
 		(turn)
 	)
+
+	; Derived -------------------------------------------------------------------
+	; TODO: Define something here to test
 
 	; Tasks ---------------------------------------------------------------------
   
@@ -526,7 +530,7 @@
 						(= (coordinate_y ?x) (coordinate_y ?y))
 					)
 		:effect (and 
-					(assign (last_coordinate_y ?x) (coordinate_x ?x))
+					(assign (last_coordinate_x ?x) (coordinate_x ?x))
 					(assign (last_coordinate_y ?x) (coordinate_y ?x))
 					(assign (coordinate_x ?x) -1)
 					(assign (coordinate_y ?x) -1)
