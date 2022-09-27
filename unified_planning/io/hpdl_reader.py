@@ -780,7 +780,8 @@ class HPDLReader:
             # Methods are defined inside tasks
             for method in task.get("methods", []):
                 # assert isinstance(problem, htn.HierarchicalProblem)
-                method_name = f'{task_name}-{method["name"]}'
+                method_name = f'{task_name}-{method["name"]}' # Methods names are
+                                                              # not unique across tasks
                 method_params = OrderedDict()
                 method_preconditions = method.get("preconditions", [])
 
