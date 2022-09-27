@@ -133,6 +133,14 @@ class HPDLGrammar:
             + Suppress(")")
         )
 
+        # inline_def = Group(
+        #     Suppress("(")
+        #     # TODO: Give name?
+        #     + ":inline"
+        #     + nestedExpr().setResultsName("cond")
+        #     + nestedExpr().setResultsName("eff")
+        # )
+
         method_def = Group(
             Suppress("(")
             + ":method"
@@ -153,6 +161,7 @@ class HPDLGrammar:
             #     ":ordered-subtasks" + nestedExpr().setResultsName("ordered-subtasks")
             # )
             + ":tasks" 
+            # TODO: Include :inline? Are they needed
             + nestedExpr().setResultsName("subtasks")
             + Suppress(")")
         )
