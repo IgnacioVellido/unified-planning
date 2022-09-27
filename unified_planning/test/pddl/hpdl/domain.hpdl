@@ -11,7 +11,7 @@
 		:derived-predicates
 		:negative-preconditions
 		:universal-preconditions
-		:disjuntive-preconditions
+		:disjunctive-preconditions
 		:conditional-effects
 		:htn-expansion
 
@@ -25,12 +25,12 @@
 	; Types ---------------------------------------------------------------------
 
 	(:types
+		MovingAvatar Passive Immovable - object
 		floor - Immovable
 		hole - Immovable
 		avatar - MovingAvatar
 		box - Passive
 		wall - Immovable
-		MovingAvatar Passive Immovable - Object
 	)
 
 	; Constants -----------------------------------------------------------------
@@ -41,25 +41,25 @@
 	; Predicates ----------------------------------------------------------------
 
 	(:predicates
-		(orientation-up ?o - Object)
-		(orientation-down ?o - Object)
-		(orientation-left ?o - Object)
-		(orientation-right ?o - Object)
+		(orientation-up ?o - object)
+		(orientation-down ?o - object)
+		(orientation-left ?o - object)
+		(orientation-right ?o - object)
 		(can-move-up ?a - MovingAvatar)
 		(can-move-down ?a - MovingAvatar)
 		(can-move-left ?a - MovingAvatar)
 		(can-move-right ?a - MovingAvatar)
-		(evaluate-interaction ?o1 ?o2 - Object)
-		(regenerate-interaction ?o1 ?o2 - Object)
+		(evaluate-interaction ?o1 ?o2 - object)
+		(regenerate-interaction ?o1 ?o2 - object)
 	)
   
 	; Functions -----------------------------------------------------------------
 
 	(:functions
-		(coordinate_x ?o - Object)
-		(coordinate_y ?o - Object)
-		(last_coordinate_x ?o - Object)
-		(last_coordinate_y ?o - Object)
+		(coordinate_x ?o - object)
+		(coordinate_y ?o - object)
+		(last_coordinate_x ?o - object)
+		(last_coordinate_y ?o - object)
 		(counter_floor)
 		(counter_Immovable)
 		(counter_hole)
@@ -68,7 +68,7 @@
 		(counter_box)
 		(counter_Passive)
 		(counter_wall)
-		(counter_Object)
+		(counter_object)
 		(turn)
 	)
 
@@ -191,7 +191,7 @@
 
 		(:method create
 				:precondition (and 
-									(not (evaluate-interaction ?o1 - Object ?o2 - Object))
+									(not (evaluate-interaction ?o1 - object ?o2 - object))
 								)
 				:tasks ( 
 							(:inline () (evaluate-interaction ?o1 ?o2)) 
@@ -531,8 +531,8 @@
 					(assign (coordinate_x ?x) -1)
 					(assign (coordinate_y ?x) -1)
 					(decrease (counter_Passive) 1)
-					(decrease (counter_Object) 1)
-					(decrease (counter_Object) 1)
+					(decrease (counter_object) 1)
+					(decrease (counter_object) 1)
 				)
 	)
 
