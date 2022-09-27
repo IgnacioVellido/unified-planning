@@ -49,7 +49,7 @@ class TestHpdlIO(TestCase):
         problem = reader.parse_problem(domain_filename, problem_filename)
 
         assert isinstance(problem, up.model.htn.HierarchicalProblem)
-        self.assertEqual(10, len(problem.fluents))
+        self.assertEqual(24, len(problem.fluents))
         self.assertEqual(14, len(problem.actions))
         self.assertEqual(
             [
