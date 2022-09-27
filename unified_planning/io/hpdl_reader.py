@@ -213,6 +213,14 @@ class HPDLGrammar:
             "optimization"
         ) + (name | nestedExpr()).setResultsName("metric")
 
+        goal = Group(
+            Suppress("(")
+            + ":tasks-goal"
+            + ":tasks"
+            + nestedExpr().setResultsName("goal")
+            + Suppress(")")
+        )
+
         problem = (
             Suppress("(")
             + "define"
@@ -231,12 +239,7 @@ class HPDLGrammar:
             + ":init"
             + ZeroOrMore(nestedExpr()).setResultsName("init")
             + Suppress(")")
-            + Optional(
-                Suppress("(")
-                + ":goal"
-                + nestedExpr().setResultsName("goal")
-                + Suppress(")")
-            )
+            + Optional(goal)
             + Optional(Suppress("(") + ":metric" + metric + Suppress(")"))
             + Suppress(")")
         )
