@@ -133,6 +133,30 @@ class HPDLGrammar:
             + Suppress(")")
         )
 
+        method_def = Group(
+            Suppress("(")
+            + ":method"
+            + name.setResultsName("name")
+            + ":precondition"
+            + nestedExpr().setResultsName("pre")
+            # TODO: Method params are defined in task, needs to be set
+            # + ":parameters"
+            # + Suppress("(")
+            # + parameters
+            # + Suppress(")")
+            # + ":task"
+
+            # + nestedExpr().setResultsName("task") # TODO: Task is parent, Needs this variable to be set?
+
+            # TODO: Set order
+            # + Optional(
+            #     ":ordered-subtasks" + nestedExpr().setResultsName("ordered-subtasks")
+            # )
+            + ":tasks" 
+            + nestedExpr().setResultsName("subtasks")
+            + Suppress(")")
+        )
+
         task_def = Group(
             Suppress("(")
             + ":task"
@@ -141,23 +165,7 @@ class HPDLGrammar:
             + Suppress("(")
             + parameters
             + Suppress(")")
-            + Suppress(")")
-        )
-
-        method_def = Group(
-            Suppress("(")
-            + ":method"
-            + name.setResultsName("name")
-            + ":parameters"
-            + Suppress("(")
-            + parameters
-            + Suppress(")")
-            + ":task"
-            + nestedExpr().setResultsName("task")
-            + Optional(
-                ":ordered-subtasks" + nestedExpr().setResultsName("ordered-subtasks")
-            )
-            + Optional(":subtasks" + nestedExpr().setResultsName("subtasks"))
+            + Group(OneOrMore(method_def)).setResultsName("methods")
             + Suppress(")")
         )
 
@@ -174,7 +182,7 @@ class HPDLGrammar:
             + Optional(predicates_def)
             + Optional(functions_def)
             + Group(ZeroOrMore(task_def)).setResultsName("tasks")
-            + Group(ZeroOrMore(method_def)).setResultsName("methods")
+            # + Group(ZeroOrMore(method_def)).setResultsName("methods")
             + Group(ZeroOrMore(action_def | dur_action_def)).setResultsName("actions")
             + Suppress(")")
         )
@@ -668,7 +676,7 @@ class HPDLReader:
         domain_res = self._pp_domain.parseFile(domain_filename)
 
         problem: up.model.Problem
-        if ":hierarchy" in set(domain_res.get("features", [])):
+        if ":hierarchy" in set(domain_res.get("features", [])) or ":htn-expansion" in set(domain_res.get("features", [])):
             problem = htn.HierarchicalProblem(
                 domain_res["name"],
                 self._env,
