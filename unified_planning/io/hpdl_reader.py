@@ -655,13 +655,13 @@ class HPDLReader:
         self, domain_filename: str, problem_filename: typing.Optional[str] = None
     ) -> "up.model.Problem":
         """
-        Takes in input a filename containing the `PDDL` domain and optionally a filename
-        containing the `PDDL` problem and returns the parsed `Problem`.
+        Takes in input a filename containing the `HPDL` domain and optionally a filename
+        containing the `HPDL` problem and returns the parsed `Problem`.
 
         Note that if the `problem_filename` is `None`, an incomplete `Problem` will be returned.
 
-        :param domain_filename: The path to the file containing the `PDDL` domain.
-        :param problem_filename: Optionally the path to the file containing the `PDDL` problem.
+        :param domain_filename: The path to the file containing the `HPDL` domain.
+        :param problem_filename: Optionally the path to the file containing the `HPDL` problem.
         :return: The `Problem` parsed from the given pddl domain + problem.
         """
         domain_res = self._pp_domain.parseFile(domain_filename)
@@ -745,14 +745,43 @@ class HPDLReader:
 
         for task in domain_res.get("tasks", []):
             assert isinstance(problem, htn.HierarchicalProblem)
-            name = task["name"]
+            task_name = task["name"]
             task_params = OrderedDict()
             for g in task.get("params", []):
                 t = types_map[g[1] if len(g) > 1 else "object"]
                 for p in g[0]:
                     task_params[p] = t
-            task = htn.Task(name, task_params)
-            problem.add_task(task)
+            task_model = htn.Task(task_name, task_params)
+            problem.add_task(task_model)
+
+            # Methods are defined inside tasks
+            for method in task.get("methods", []):
+                # assert isinstance(problem, htn.HierarchicalProblem)
+                method_name = method["name"]
+                method_params = OrderedDict()
+                method_preconditions = method.get("preconditions", [])
+
+                for g in method.get("params", []):
+                    t = types_map[g[1] if len(g) > 1 else "object"]
+                    for p in g[0]:
+                        method_params[p] = t
+
+                method_model = htn.Method(method_name, method_params)
+                method_model.set_task(task_model)
+
+                for pre in method_preconditions:
+                    method_model.add_precondition(pre)
+
+                # for ord_subs in m.get("tasks", []):
+                #     ord_subs = self._parse_subtasks(ord_subs, method, problem, types_map)
+                #     for s in ord_subs:
+                #         method.add_subtask(s)
+                #     method.set_ordered(*ord_subs)
+                for subs in method.get("tasks", []):
+                    subs = self._parse_subtasks(subs, method_model, problem, types_map)
+                    for s in subs:
+                        method_model.add_subtask(s)
+                problem.add_method(method)
 
         for a in domain_res.get("actions", []):
             n = a["name"]
@@ -824,39 +853,6 @@ class HPDLReader:
                 has_actions_cost = (
                     has_actions_cost and self._instantaneous_action_has_cost(act)
                 )
-
-        for m in domain_res.get("methods", []):
-            assert isinstance(problem, htn.HierarchicalProblem)
-            name = m["name"]
-            method_params = OrderedDict()
-            for g in m.get("params", []):
-                t = types_map[g[1] if len(g) > 1 else "object"]
-                for p in g[0]:
-                    method_params[p] = t
-
-            method = htn.Method(name, method_params)
-            achieved_task = m["task"][
-                0
-            ]  # a list of the form ["go", "?robot", "?target"]
-            for pname in achieved_task[1:]:
-                if pname[0] != "?":
-                    raise SyntaxError(
-                        f"All arguments of the task should be parameters: {achieved_task}"
-                    )
-            achieved_task_params = [
-                method.parameter(pname[1:]) for pname in achieved_task[1:]
-            ]
-            method.set_task(problem.get_task(achieved_task[0]), *achieved_task_params)
-            for ord_subs in m.get("ordered-subtasks", []):
-                ord_subs = self._parse_subtasks(ord_subs, method, problem, types_map)
-                for s in ord_subs:
-                    method.add_subtask(s)
-                method.set_ordered(*ord_subs)
-            for subs in m.get("subtasks", []):
-                subs = self._parse_subtasks(subs, method, problem, types_map)
-                for s in subs:
-                    method.add_subtask(s)
-            problem.add_method(method)
 
         if problem_filename is not None:
             problem_res = self._pp_problem.parseFile(problem_filename)
