@@ -87,5 +87,7 @@ class TestHpdlIO(TestCase):
             [method.name for method in problem.methods],
         )
         self.assertEqual(1, len(problem.method("turn_avatar-avatar_move_up").subtasks))
-        self.assertEqual(4, len(problem.method("check-interactions-avatar_wall_stepback").subtasks))
+        self.assertEqual(
+            4, len(problem.method("check-interactions-avatar_wall_stepback").subtasks)
+        )
         # self.assertEqual(2, len(problem.task_network.subtasks))

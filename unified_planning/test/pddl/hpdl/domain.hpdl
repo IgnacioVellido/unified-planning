@@ -79,7 +79,7 @@
 	; Tasks ---------------------------------------------------------------------
   
 	(:task Turn
-		:parameters ( )
+		:parameters ( ?a - MovingAvatar )
 
 		(:method finish_game
 				:precondition (and 
