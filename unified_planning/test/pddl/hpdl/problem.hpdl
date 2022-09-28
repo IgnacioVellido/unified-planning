@@ -1867,7 +1867,7 @@
 			(= (counter_Immovable) 36)
 			(= (counter_floor) 11)
 			(= (counter_wall) 22)
-			(= (counter_Object) 40)
+			(= (counter_object) 40)
 			(= (counter_Passive) 3)
 	)
 
