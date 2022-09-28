@@ -8,11 +8,21 @@ import pyparsing
 import unified_planning as up
 import unified_planning.model.htn as htn
 import unified_planning.model.walkers
-from pyparsing import (Group, Keyword, OneOrMore, Optional, Suppress, Word,
-                       ZeroOrMore, alphanums, alphas, nestedExpr, restOfLine)
+from pyparsing import (
+    Group,
+    Keyword,
+    OneOrMore,
+    Optional,
+    Suppress,
+    Word,
+    ZeroOrMore,
+    alphanums,
+    alphas,
+    nestedExpr,
+    restOfLine,
+)
 from unified_planning.environment import Environment, get_env
 from unified_planning.exceptions import UPUsageError
-from unified_planning.io.pddl_reader import PDDLGrammar
 from unified_planning.model import FNode
 
 if pyparsing.__version__ < "3.0.0":
@@ -126,10 +136,16 @@ class HPDLGrammar:
 
         # inline_def = Group(
         #     Suppress("(")
-        #     # TODO: Give name?
         #     + ":inline"
         #     + nestedExpr().setResultsName("cond")
         #     + nestedExpr().setResultsName("eff")
+        #     + Suppress(")")
+        # )
+
+        # hpdl_subtask = Group(
+        #     Suppress("(")
+        #     + Group(OneOrMore(inline_def | nestedExpr())).setResultsName("subtasks")
+        #     + Suppress(")")
         # )
 
         method_def = Group(
@@ -150,8 +166,10 @@ class HPDLGrammar:
             #     ":ordered-subtasks" + nestedExpr().setResultsName("ordered-subtasks")
             # )
             + ":tasks"
-            # TODO: Include :inline? Are they needed
             + nestedExpr().setResultsName("subtasks")
+            # TODO: Include :inline? Are they needed
+            # + hpdl_subtask.setResultsName("subtasks")
+            # + nestedExpr().setResultsName("subtasks")
             + Suppress(")")
         )
 
@@ -558,17 +576,22 @@ class HPDLReader:
             return None
         task_name = e[0]
 
-        if task_name == ":inline":
-            return self._parse_inline(e, method, problem, types_map)
-
         task: Union[htn.Task, up.model.Action]
         if problem.has_task(task_name):
             task = problem.get_task(task_name)
         elif problem.has_action(task_name):
             task = problem.action(task_name)
+        elif task_name == ":inline":
+            task = self._parse_inline(e, method, problem)
         else:
             return None
         assert isinstance(task, htn.Task) or isinstance(task, up.model.Action)
+
+        if task_name == ":inline":
+            return htn.Subtask(task, method.parameters)
+
+        # Remove types and '-' from the expression
+        e = [part for part in e if part != "-" and part not in self.types_map]
         parameters = [
             self._parse_exp(problem, method, types_map, {}, param) for param in e[1:]
         ]
@@ -579,11 +602,9 @@ class HPDLReader:
         e,
         method: typing.Optional[htn.Method],
         problem: htn.HierarchicalProblem,
-        types_map: Dict[str, up.model.Type],
     ) -> List[htn.Subtask]:
         inline_version = 0
         inline_name = method.name + "_inline"
-
         raise NotImplementedError("Inline methods are not supported yet.")
         # Find the first available name for the inline task
         # TODO: this is not very efficient; improve it
@@ -594,22 +615,15 @@ class HPDLReader:
         # Example dict: a [':action', 'AVATAR_MOVE_UP', ':parameters', [['a'], 'MovingAvatar'], ':precondition', ['and', ['can-move-up', '?a'], ['orientation-up', '?a']], ':effect', ['and', ['decrease', ['coordinate_x', '?a'], '1']]]
         action = OrderedDict()
         action["name"] = f"{inline_name}_{inline_version}"
-        action["params"] = method.parameters
-
-        # We need to clean the types from the inline effect
-        for part in e[2]:
-            if part in self.types_map.keys() or part == "-":
-                e[2].remove(part)
+        action["params"] = [p.name for p in method.parameters]
 
         # The effect does not start with "and", we need to add it
         action["eff"] = [["and", e[2]]]
 
-        print("inline-eff", action["eff"])
-        # print("action", e[1], e[2])
-        self._parse_action(
+        return self._parse_action(
             action,
             problem,
-            types_map,
+            self.types_map,
             self.universal_assignments,
         )
 
@@ -638,7 +652,7 @@ class HPDLReader:
         elif len(e) >= 1:
             return [
                 subtask
-                for e2 in e[1:]
+                for e2 in e
                 for subtask in self._parse_subtasks(e2, method, problem, types_map)
             ]
         else:
@@ -777,6 +791,7 @@ class HPDLReader:
             self.has_actions_cost = (
                 self.has_actions_cost and self._durative_action_has_cost(dur_act)
             )
+            return dur_act
         else:
             act = up.model.InstantaneousAction(n, a_params, self._env)
             if "pre" in a:
@@ -792,6 +807,7 @@ class HPDLReader:
             self.has_actions_cost = (
                 self.has_actions_cost and self._instantaneous_action_has_cost(act)
             )
+            return act
 
     def parse_problem(
         self, domain_filename: str, problem_filename: typing.Optional[str] = None
@@ -920,18 +936,15 @@ class HPDLReader:
                 # assert isinstance(problem, htn.HierarchicalProblem)
                 method_name = f'{task["name"]}-{method["name"]}'  # Methods names are
                 # not unique across tasks
-                method_params = OrderedDict()
-                method_preconditions = method.get("preconditions", [])
 
-                # for g in method.get("params", []):
-                for g in task.get("params", []):
-                    t = self.types_map[g[1] if len(g) > 1 else "object"]
-                    for p in g[0]:
-                        method_params[p] = t
+                task_model = problem.get_task(task["name"])
+                task_params = task_model.parameters
 
                 method_model = htn.Method(method_name, task_params)
+
                 method_model.set_task(task_model)
 
+                method_preconditions = method.get("preconditions", [])
                 for pre in method_preconditions:
                     method_model.add_precondition(pre)
 
