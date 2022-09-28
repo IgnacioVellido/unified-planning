@@ -1,3 +1,4 @@
+from string import printable
 import typing
 from collections import OrderedDict
 from fractions import Fraction
@@ -131,7 +132,26 @@ class HPDLGrammar:
             + nestedExpr().setResultsName("eff")
             + Suppress(")")
         )
-
+        tag_def = OneOrMore (
+            Suppress("(")+ ":tag" +Word(printable) + Suppress(")")
+        )
+        method_def = Group(
+                    Suppress("(")
+                    + ":method"
+                    + name.setResultsName("name")
+                    #+ ":parameters"
+                    #+ Suppress("(")
+                    #+ parameters
+                    #+ Suppress(")")
+                    #+ ":task"
+                    #+ nestedExpr().setResultsName("task")
+                    + Optional(
+                        ":ordered-subtasks" + nestedExpr().setResultsName("ordered-subtasks")
+                    )
+                    + Optional(":meta" + Suppress("(")+ tag_def +Suppress(")"))
+                    + Optional(":subtasks" + nestedExpr().setResultsName("subtasks"))
+                    + Suppress(")")
+                )
         task_def = Group(
             Suppress("(")
             + ":task"
@@ -140,25 +160,13 @@ class HPDLGrammar:
             + Suppress("(")
             + parameters
             + Suppress(")")
+            ###TODO Una lista de uno o más metodos
+            + OneOrMore(method_def).setResultsName("methods_of")
+        
             + Suppress(")")
         )
 
-        method_def = Group(
-            Suppress("(")
-            + ":method"
-            + name.setResultsName("name")
-            + ":parameters"
-            + Suppress("(")
-            + parameters
-            + Suppress(")")
-            + ":task"
-            + nestedExpr().setResultsName("task")
-            + Optional(
-                ":ordered-subtasks" + nestedExpr().setResultsName("ordered-subtasks")
-            )
-            + Optional(":subtasks" + nestedExpr().setResultsName("subtasks"))
-            + Suppress(")")
-        )
+       
 
         domain = (
             Suppress("(")
@@ -651,22 +659,25 @@ class HPDLReader:
                 return False
         return True
 
+    #TODO Hay que modificar y añadir varias cosas en parse_problem, ver más abajo.
     def parse_problem(
         self, domain_filename: str, problem_filename: typing.Optional[str] = None
     ) -> "up.model.Problem":
         """
-        Takes in input a filename containing the `PDDL` domain and optionally a filename
-        containing the `PDDL` problem and returns the parsed `Problem`.
+        Takes in input a filename containing the `HPDL` domain and optionally a filename
+        containing the `HPDL` problem and returns the parsed `Problem`.
 
         Note that if the `problem_filename` is `None`, an incomplete `Problem` will be returned.
 
-        :param domain_filename: The path to the file containing the `PDDL` domain.
-        :param problem_filename: Optionally the path to the file containing the `PDDL` problem.
-        :return: The `Problem` parsed from the given pddl domain + problem.
+        :param domain_filename: The path to the file containing the `HPDL` domain.
+        :param problem_filename: Optionally the path to the file containing the `HPDL` problem.
+        :return: The `Problem` parsed from the given HPDL domain + problem.
         """
+        #TODO Hay que cambiar la gramática para HPDL y  parseFile para que se adapte a HPDL
         domain_res = self._pp_domain.parseFile(domain_filename)
 
         problem: up.model.Problem
+        #TODO Pensar si necesitamos distinguir en "features" que estamos parseando HPDL
         if ":hierarchy" in set(domain_res.get("features", [])):
             problem = htn.HierarchicalProblem(
                 domain_res["name"],
@@ -679,6 +690,8 @@ class HPDLReader:
                 self._env,
                 initial_defaults={self._tm.BoolType(): self._em.FALSE()},
             )
+        
+        #TODO: Comprobar que los tipos se parsean correctamente
 
         types_map: Dict[str, "up.model.Type"] = {}
         object_type_needed: bool = self._check_if_object_type_is_needed(domain_res)
@@ -715,6 +728,8 @@ class HPDLReader:
 
         has_actions_cost = False
 
+        #TODO No debería haber problema con los predicados, tienen la misma repr. que en HPDL
+
         for p in domain_res.get("predicates", []):
             n = p[0]
             params = OrderedDict()
@@ -725,6 +740,17 @@ class HPDLReader:
             f = up.model.Fluent(n, self._tm.BoolType(), params, self._env)
             problem.add_fluent(f)
 
+        #TODO   DERIVED PREDICATES Hay que añadir problem.add_derived_predicate() y esto tendría que ser en una 
+        #       nueva subclase de HierarchicalProblem, que podríamos llamar HPDLProblem
+
+        # TODO  Las funciones pddl se gestionan y se añaden como un fluent especial "con un tipo real".
+        #       un fluent en el upfmodel es [name, type, signature], donde signature son los parámetros.
+        #       habría que 
+        #               o bien cambiar la definición de la clase fluent en el upfmodel
+        #               o bien crear una subclase de HierarchicalProblem, que sea, HPDLProblem, CREO  que esto es lo ideal
+        #                 porque un HPDLProblem tiene los mismos atributos que un HierarchicalProblem, y un conjunto 
+        #                 adicional como derived predicates y functions que se implementan con python.
+        # TODO AÑADIR la funcion problem.add_pythonfunction(f)
         for p in domain_res.get("functions", []):
             n = p[0]
             params = OrderedDict()
@@ -738,6 +764,7 @@ class HPDLReader:
                 self._totalcost = cast(up.model.FNode, self._em.FluentExp(f))
             problem.add_fluent(f)
 
+        #TODO Comprobar las constantes, que no deberían  dar problema
         for g in domain_res.get("constants", []):
             t = types_map[g[1] if len(g) > 1 else "object"]
             for o in g[0]:
