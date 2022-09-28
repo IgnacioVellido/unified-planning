@@ -8,19 +8,8 @@ import pyparsing
 import unified_planning as up
 import unified_planning.model.htn as htn
 import unified_planning.model.walkers
-from pyparsing import (
-    Group,
-    Keyword,
-    OneOrMore,
-    Optional,
-    Suppress,
-    Word,
-    ZeroOrMore,
-    alphanums,
-    alphas,
-    nestedExpr,
-    restOfLine,
-)
+from pyparsing import (Group, Keyword, OneOrMore, Optional, Suppress, Word,
+                       ZeroOrMore, alphanums, alphas, nestedExpr, restOfLine)
 from unified_planning.environment import Environment, get_env
 from unified_planning.exceptions import UPUsageError
 from unified_planning.io.pddl_reader import PDDLGrammar
@@ -295,6 +284,11 @@ class HPDLReader:
         self._fve = self._env.free_vars_extractor
         self._totalcost: typing.Optional[up.model.FNode] = None
 
+        self.types_map: Dict[str, "up.model.Type"] = {}
+        self.object_type_needed: bool = False
+        self.universal_assignments: Dict["up.model.Action", List[ParseResults]] = {}
+        self.has_actions_cost: bool = False
+
     def _parse_exp(
         self,
         problem: up.model.Problem,
@@ -566,6 +560,7 @@ class HPDLReader:
 
         if task_name == ":inline":
             return self._parse_inline(e, method, problem, types_map)
+
         task: Union[htn.Task, up.model.Action]
         if problem.has_task(task_name):
             task = problem.get_task(task_name)
@@ -589,16 +584,34 @@ class HPDLReader:
         inline_version = 0
         inline_name = method.name + "_inline"
 
+        raise NotImplementedError("Inline methods are not supported yet.")
         # Find the first available name for the inline task
         # TODO: this is not very efficient; improve it
         while problem.has_action(f"{inline_name}_{inline_version}"):
             inline_version += 1
 
-        raise Exception("Inline not implemented")
-        # We need the parameters of the method to be able to parse the inline
-        # Needed to build the task with the inline
-        # TODO: Implement this
-        self._parse_action()
+        # Let's build an action that corresponds to the inline task
+        # Example dict: a [':action', 'AVATAR_MOVE_UP', ':parameters', [['a'], 'MovingAvatar'], ':precondition', ['and', ['can-move-up', '?a'], ['orientation-up', '?a']], ':effect', ['and', ['decrease', ['coordinate_x', '?a'], '1']]]
+        action = OrderedDict()
+        action["name"] = f"{inline_name}_{inline_version}"
+        action["params"] = method.parameters
+
+        # We need to clean the types from the inline effect
+        for part in e[2]:
+            if part in self.types_map.keys() or part == "-":
+                e[2].remove(part)
+
+        # The effect does not start with "and", we need to add it
+        action["eff"] = [["and", e[2]]]
+
+        print("inline-eff", action["eff"])
+        # print("action", e[1], e[2])
+        self._parse_action(
+            action,
+            problem,
+            types_map,
+            self.universal_assignments,
+        )
 
     def _parse_subtasks(
         self,
@@ -711,8 +724,8 @@ class HPDLReader:
         problem: up.model.Problem,
         types_map: Dict[str, up.model.Type],
         universal_assignments: Dict["up.model.Action", List[ParseResults]],
-        has_actions_cost: bool,
     ):
+        """Parses an action from the domain and adds it to the problem"""
         n = a["name"]
         a_params = OrderedDict()
         for g in a.get("params", []):
@@ -761,8 +774,8 @@ class HPDLReader:
                 problem, dur_act, types_map, universal_assignments, eff
             )
             problem.add_action(dur_act)
-            has_actions_cost = has_actions_cost and self._durative_action_has_cost(
-                dur_act
+            self.has_actions_cost = (
+                self.has_actions_cost and self._durative_action_has_cost(dur_act)
             )
         else:
             act = up.model.InstantaneousAction(n, a_params, self._env)
@@ -776,8 +789,8 @@ class HPDLReader:
                 )
             problem.add_action(act)
             # Do we need to do it here? it comes from _parse_problem method
-            has_actions_cost = has_actions_cost and self._instantaneous_action_has_cost(
-                act
+            self.has_actions_cost = (
+                self.has_actions_cost and self._instantaneous_action_has_cost(act)
             )
 
     def parse_problem(
@@ -796,6 +809,7 @@ class HPDLReader:
         domain_res = self._pp_domain.parseFile(domain_filename)
 
         problem: up.model.Problem
+
         if ":hierarchy" in set(
             domain_res.get("features", [])
         ) or ":htn-expansion" in set(domain_res.get("features", [])):
@@ -813,9 +827,9 @@ class HPDLReader:
 
         # TODO: Maybe we need to make this vars properties of the class
         # To easily access them in the methods
-        types_map: Dict[str, "up.model.Type"] = {}
-        object_type_needed: bool = self._check_if_object_type_is_needed(domain_res)
-        universal_assignments: Dict["up.model.Action", List[ParseResults]] = {}
+        self.types_map: Dict[str, "up.model.Type"] = {}
+        self.object_type_needed: bool = self._check_if_object_type_is_needed(domain_res)
+        self.universal_assignments: Dict["up.model.Action", List[ParseResults]] = {}
         ##
         for types_list in domain_res.get("types", []):
             # types_list is a List of 1 or 2 elements, where the first one
@@ -824,12 +838,14 @@ class HPDLReader:
             father: typing.Optional["up.model.Type"] = None
             if len(types_list) == 2:  # the types have a father
                 if types_list[1] != "object":  # the father is not object
-                    father = types_map[types_list[1]]
-                elif object_type_needed:  # the father is object, and object is needed
-                    object_type = types_map.get("object", None)
+                    father = self.types_map[types_list[1]]
+                elif (
+                    self.object_type_needed
+                ):  # the father is object, and object is needed
+                    object_type = self.types_map.get("object", None)
                     if object_type is None:  # the type object is not defined
                         father = self._env.type_manager.UserType("object", None)
-                        types_map["object"] = father
+                        self.types_map["object"] = father
                     else:
                         father = object_type
             else:
@@ -837,23 +853,23 @@ class HPDLReader:
                     len(types_list) == 1
                 ), "Malformed list of types, I was expecting either 1 or 2 elements"  # sanity check
             for type_name in types_list[0]:
-                types_map[type_name] = self._env.type_manager.UserType(
+                self.types_map[type_name] = self._env.type_manager.UserType(
                     type_name, father
                 )
         if (
-            object_type_needed and "object" not in types_map
+            self.object_type_needed and "object" not in self.types_map
         ):  # The object type is needed, but has not been defined
-            types_map["object"] = self._env.type_manager.UserType(
+            self.types_map["object"] = self._env.type_manager.UserType(
                 "object", None
             )  # We manually define it.
 
-        has_actions_cost = False
+        self.has_actions_cost = False
 
         for p in domain_res.get("predicates", []):
             n = p[0]
             params = OrderedDict()
             for g in p[1]:
-                param_type = types_map[g[1] if len(g) > 1 else "object"]
+                param_type = self.types_map[g[1] if len(g) > 1 else "object"]
                 for param_name in g[0]:
                     params[param_name] = param_type
             f = up.model.Fluent(n, self._tm.BoolType(), params, self._env)
@@ -863,17 +879,17 @@ class HPDLReader:
             n = p[0]
             params = OrderedDict()
             for g in p[1]:
-                param_type = types_map[g[1] if len(g) > 1 else "object"]
+                param_type = self.types_map[g[1] if len(g) > 1 else "object"]
                 for param_name in g[0]:
                     params[param_name] = param_type
             f = up.model.Fluent(n, self._tm.RealType(), params, self._env)
             if n == "total-cost":
-                has_actions_cost = True
+                self.has_actions_cost = True
                 self._totalcost = cast(up.model.FNode, self._em.FluentExp(f))
             problem.add_fluent(f)
 
         for g in domain_res.get("constants", []):
-            t = types_map[g[1] if len(g) > 1 else "object"]
+            t = self.types_map[g[1] if len(g) > 1 else "object"]
             for o in g[0]:
                 problem.add_object(up.model.Object(o, t, problem.env))
 
@@ -882,7 +898,7 @@ class HPDLReader:
             task_name = task["name"]
             task_params = OrderedDict()
             for g in task.get("params", []):
-                t = types_map[g[1] if len(g) > 1 else "object"]
+                t = self.types_map[g[1] if len(g) > 1 else "object"]
                 for p in g[0]:
                     task_params[p] = t
             task_model = htn.Task(task_name, task_params)
@@ -890,7 +906,10 @@ class HPDLReader:
 
         for a in domain_res.get("actions", []):
             self._parse_action(
-                a, problem, types_map, universal_assignments, has_actions_cost
+                a,
+                problem,
+                self.types_map,
+                self.universal_assignments,
             )
 
         # Methods are defined inside tasks;
@@ -904,8 +923,9 @@ class HPDLReader:
                 method_params = OrderedDict()
                 method_preconditions = method.get("preconditions", [])
 
-                for g in method.get("params", []):
-                    t = types_map[g[1] if len(g) > 1 else "object"]
+                # for g in method.get("params", []):
+                for g in task.get("params", []):
+                    t = self.types_map[g[1] if len(g) > 1 else "object"]
                     for p in g[0]:
                         method_params[p] = t
 
@@ -921,7 +941,9 @@ class HPDLReader:
                 #         method.add_subtask(s)
                 #     method.set_ordered(*ord_subs)
                 for subs in method.get("subtasks", []):
-                    subs = self._parse_subtasks(subs, method_model, problem, types_map)
+                    subs = self._parse_subtasks(
+                        subs, method_model, problem, self.types_map
+                    )
                     for s in subs:
                         method_model.add_subtask(s)
                 problem.add_method(method_model)
@@ -932,11 +954,11 @@ class HPDLReader:
             problem.name = problem_res["name"]
 
             for g in problem_res.get("objects", []):
-                t = types_map[g[1] if len(g) > 1 else "object"]
+                t = self.types_map[g[1] if len(g) > 1 else "object"]
                 for o in g[0]:
                     problem.add_object(up.model.Object(o, t, problem.env))
 
-            for action, eff_list in universal_assignments.items():
+            for action, eff_list in self.universal_assignments.items():
                 for eff in eff_list:
                     # Parse the variable definition part and create 2 lists, the first one with the variable names,
                     # the second one with the variable types.
@@ -945,7 +967,7 @@ class HPDLReader:
                     var_names: List[str] = []
                     var_types: List["up.model.Type"] = []
                     for g in vars_res["params"]:
-                        t = types_map[g[1] if len(g) > 1 else "object"]
+                        t = self.types_map[g[1] if len(g) > 1 else "object"]
                         for o in g[0]:
                             var_names.append(f"?{o}")
                             var_types.append(t)
@@ -961,7 +983,7 @@ class HPDLReader:
                             self._add_effect(
                                 problem,
                                 action,
-                                types_map,
+                                self.types_map,
                                 None,
                                 eff[2],
                                 assignments=assignments,
@@ -970,7 +992,7 @@ class HPDLReader:
                             self._add_timed_effects(
                                 problem,
                                 action,
-                                types_map,
+                                self.types_map,
                                 None,
                                 eff[2],
                                 assignments=assignments,
@@ -982,7 +1004,7 @@ class HPDLReader:
             if tasknet is not None:
                 assert isinstance(problem, htn.HierarchicalProblem)
                 tasks = self._parse_subtasks(
-                    tasknet["tasks"][0], None, problem, types_map
+                    tasknet["tasks"][0], None, problem, self.types_map
                 )
                 for task in tasks:
                     problem.task_network.add_subtask(task)
@@ -998,14 +1020,14 @@ class HPDLReader:
             for i in problem_res.get("init", []):
                 if i[0] == "=":
                     problem.set_initial_value(
-                        self._parse_exp(problem, None, types_map, {}, i[1]),
-                        self._parse_exp(problem, None, types_map, {}, i[2]),
+                        self._parse_exp(problem, None, self.types_map, {}, i[1]),
+                        self._parse_exp(problem, None, self.types_map, {}, i[2]),
                     )
                 elif (
                     len(i) == 3 and i[0] == "at" and i[1].replace(".", "", 1).isdigit()
                 ):
                     ti = up.model.StartTiming(Fraction(i[1]))
-                    va = self._parse_exp(problem, None, types_map, {}, i[2])
+                    va = self._parse_exp(problem, None, self.types_map, {}, i[2])
                     if va.is_fluent_exp():
                         problem.add_timed_effect(ti, va, self._em.TRUE())
                     elif va.is_not():
@@ -1016,21 +1038,21 @@ class HPDLReader:
                         raise SyntaxError(f"Not able to handle this TIL {i}")
                 else:
                     problem.set_initial_value(
-                        self._parse_exp(problem, None, types_map, {}, i),
+                        self._parse_exp(problem, None, self.types_map, {}, i),
                         self._em.TRUE(),
                     )
 
             if "goal" in problem_res:
                 problem.add_goal(
                     self._parse_exp(
-                        problem, None, types_map, {}, problem_res["goal"][0]
+                        problem, None, self.types_map, {}, problem_res["goal"][0]
                     )
                 )
             elif not isinstance(problem, htn.HierarchicalProblem):
                 raise SyntaxError("Missing goal section in problem file.")
 
-            has_actions_cost = has_actions_cost and self._problem_has_actions_cost(
-                problem
+            self.has_actions_cost = (
+                self.has_actions_cost and self._problem_has_actions_cost(problem)
             )
 
             optimization = problem_res.get("optimization", None)
@@ -1044,9 +1066,11 @@ class HPDLReader:
                 ):
                     problem.add_quality_metric(up.model.metrics.MinimizeMakespan())
                 else:
-                    metric_exp = self._parse_exp(problem, None, types_map, {}, metric)
+                    metric_exp = self._parse_exp(
+                        problem, None, self.types_map, {}, metric
+                    )
                     if (
-                        has_actions_cost
+                        self.has_actions_cost
                         and optimization == "minimize"
                         and metric_exp == self._totalcost
                     ):
@@ -1091,7 +1115,7 @@ class HPDLReader:
                                 )
                             )
         else:
-            if len(universal_assignments) != 0:
+            if len(self.universal_assignments) != 0:
                 raise UPUsageError(
                     "The domain has quantified assignments. In the unified_planning library this is compatible only if the problem is given and not only the domain."
                 )
