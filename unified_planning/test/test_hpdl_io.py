@@ -19,9 +19,11 @@ from typing import cast
 import pytest
 import unified_planning
 from unified_planning.engines import PlanGenerationResultStatus
+
 # from unified_planning.io import HPDLReader, HPDLWriter
 from unified_planning.io.hpdl_reader import HPDLReader
-from unified_planning.io.hpdl_writer import HPDLWriter
+
+# from unified_planning.io.hpdl_writer import HPDLWriter
 from unified_planning.model.problem_kind import full_numeric_kind
 from unified_planning.model.types import _UserType
 from unified_planning.shortcuts import *
