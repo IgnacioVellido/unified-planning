@@ -167,6 +167,14 @@ class HPDLGrammar:
             + Suppress(")")
         )
 
+        derived_def = Group(
+            Suppress("(")
+            + ":derived"
+            + nestedExpr().setResultsName("pre")
+            + nestedExpr().setResultsName("post")
+            + Suppress(")")
+        )
+
         domain = (
             Suppress("(")
             + "define"
@@ -179,6 +187,7 @@ class HPDLGrammar:
             + Optional(constants_def)
             + Optional(predicates_def)
             + Optional(functions_def)
+            + Group(ZeroOrMore(derived_def)).setResultsName("derived")
             + Group(ZeroOrMore(task_def)).setResultsName("tasks")
             # + Group(ZeroOrMore(method_def)).setResultsName("methods")
             + Group(ZeroOrMore(action_def | dur_action_def)).setResultsName("actions")
@@ -497,8 +506,14 @@ class HPDLReader:
                 if vars is not None:
                     cond = self._em.Forall(cond, *vars.values())
                 act.add_condition(t_all, cond)
-            else:
-                raise SyntaxError(f"Not able to handle: {exp}")
+            else: # HPDL accept any exp, and considers (at start ...)
+                cond = self._parse_exp(
+                    problem, act, types_map, {} if vars is None else vars, exp # CHANGED
+                )
+                if vars is not None:
+                    cond = self._em.Forall(cond, *vars.values())
+                act.add_condition(up.model.StartTiming(), cond)
+                # raise SyntaxError(f"Not able to handle: {exp}")
 
     def _add_timed_effects(
         self,
@@ -542,8 +557,17 @@ class HPDLReader:
                 assert universal_assignments is not None
                 action_assignments = universal_assignments.setdefault(act, [])
                 action_assignments.append(eff)
-            else:
-                raise SyntaxError(f"Not able to handle: {eff}")
+            else: # HPDL accept any exp, and considers (at end ...)
+                self._add_effect(
+                    problem,
+                    act,
+                    types_map,
+                    universal_assignments,
+                    eff, # CHANGED
+                    timing=up.model.EndTiming(),
+                    assignments=assignments,
+                )
+                # raise SyntaxError(f"Not able to handle: {eff}")
 
     def _parse_subtask(
         self,
@@ -928,6 +952,9 @@ class HPDLReader:
                     t = self.types_map[g[1] if len(g) > 1 else "object"]
                     for p in g[0]:
                         method_params[p] = t
+
+                task_model = problem.get_task(task["name"])
+                task_params = task_model.parameters
 
                 method_model = htn.Method(method_name, task_params)
                 method_model.set_task(task_model)
