@@ -2,8 +2,9 @@ import typing
 from collections import OrderedDict
 from fractions import Fraction
 from itertools import product
-from string import printable
 from typing import Callable, Dict, List, Union, cast
+
+from pyparsing import printables
 
 import pyparsing
 import unified_planning as up
@@ -134,22 +135,13 @@ class HPDLGrammar:
             + nestedExpr().setResultsName("eff")
             + Suppress(")")
         )
-        tag_def = OneOrMore(Suppress("(") + ":tag" + Word(printable) + Suppress(")"))
-        method_def = Group(
+
+        tag_def = Group(
             Suppress("(")
-            + ":method"
-            + name.setResultsName("name")
-            # + ":parameters"
-            # + Suppress("(")
-            # + parameters
-            # + Suppress(")")
-            # + ":task"
-            # + nestedExpr().setResultsName("task")
-            + Optional(
-                ":ordered-subtasks" + nestedExpr().setResultsName("ordered-subtasks")
-            )
-            + Optional(":meta" + Suppress("(") + tag_def + Suppress(")"))
-            + Optional(":subtasks" + nestedExpr().setResultsName("subtasks"))
+            + ":tag"
+            # TODO: Look how printables work and finish this
+            # + Word(printables.)
+            + "prettyprint"
             + Suppress(")")
         )
 
@@ -184,6 +176,9 @@ class HPDLGrammar:
             # + Optional(
             #     ":ordered-subtasks" + nestedExpr().setResultsName("ordered-subtasks")
             # )
+            + Optional(
+                ":meta" + Suppress("(") + OneOrMore(tag_def) + Suppress(")")
+            )
             + ":tasks"
             + nestedExpr().setResultsName("subtasks")
             # TODO: Include :inline? Are they needed
@@ -628,7 +623,8 @@ class HPDLReader:
         elif problem.has_action(task_name):
             task = problem.action(task_name)
         elif task_name == ":inline":
-            task = self._parse_inline(e, method, problem)
+            # task = self._parse_inline(e, method, problem)
+            return None
         else:
             return None
         assert isinstance(task, htn.Task) or isinstance(task, up.model.Action)
@@ -698,7 +694,7 @@ class HPDLReader:
         elif len(e) >= 1:
             return [
                 subtask
-                for e2 in e
+                for e2 in e[1:]
                 for subtask in self._parse_subtasks(e2, method, problem, types_map)
             ]
         else:
