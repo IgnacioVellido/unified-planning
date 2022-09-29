@@ -1,8 +1,8 @@
-from string import printable
 import typing
 from collections import OrderedDict
 from fractions import Fraction
 from itertools import product
+from string import printable
 from typing import Callable, Dict, List, Union, cast
 
 import pyparsing
@@ -134,26 +134,24 @@ class HPDLGrammar:
             + nestedExpr().setResultsName("eff")
             + Suppress(")")
         )
-        tag_def = OneOrMore (
-            Suppress("(")+ ":tag" +Word(printable) + Suppress(")")
-        )
+        tag_def = OneOrMore(Suppress("(") + ":tag" + Word(printable) + Suppress(")"))
         method_def = Group(
-                    Suppress("(")
-                    + ":method"
-                    + name.setResultsName("name")
-                    #+ ":parameters"
-                    #+ Suppress("(")
-                    #+ parameters
-                    #+ Suppress(")")
-                    #+ ":task"
-                    #+ nestedExpr().setResultsName("task")
-                    + Optional(
-                        ":ordered-subtasks" + nestedExpr().setResultsName("ordered-subtasks")
-                    )
-                    + Optional(":meta" + Suppress("(")+ tag_def +Suppress(")"))
-                    + Optional(":subtasks" + nestedExpr().setResultsName("subtasks"))
-                    + Suppress(")")
-                )
+            Suppress("(")
+            + ":method"
+            + name.setResultsName("name")
+            # + ":parameters"
+            # + Suppress("(")
+            # + parameters
+            # + Suppress(")")
+            # + ":task"
+            # + nestedExpr().setResultsName("task")
+            + Optional(
+                ":ordered-subtasks" + nestedExpr().setResultsName("ordered-subtasks")
+            )
+            + Optional(":meta" + Suppress("(") + tag_def + Suppress(")"))
+            + Optional(":subtasks" + nestedExpr().setResultsName("subtasks"))
+            + Suppress(")")
+        )
 
         # inline_def = Group(
         #     Suppress("(")
@@ -204,11 +202,7 @@ class HPDLGrammar:
             + Suppress(")")
             ###TODO Una lista de uno o más metodos
             + OneOrMore(method_def).setResultsName("methods_of")
-        
             + Suppress(")")
-        )
-
-       
             + Group(OneOrMore(method_def)).setResultsName("methods")
             + Suppress(")")
         )
@@ -760,7 +754,7 @@ class HPDLReader:
                 return False
         return True
 
-    #TODO Hay que modificar y añadir varias cosas en parse_problem, ver más abajo.
+    # TODO Hay que modificar y añadir varias cosas en parse_problem, ver más abajo.
     def _parse_action(
         self,
         a,
@@ -852,12 +846,11 @@ class HPDLReader:
         :return: The `Problem` parsed from the given HPDL domain + problem.
         :return: The `Problem` parsed from the given pddl domain + problem.
         """
-        #TODO Hay que cambiar la gramática para HPDL y  parseFile para que se adapte a HPDL
+        # TODO Hay que cambiar la gramática para HPDL y  parseFile para que se adapte a HPDL
         domain_res = self._pp_domain.parseFile(domain_filename)
 
         problem: up.model.Problem
-        #TODO Pensar si necesitamos distinguir en "features" que estamos parseando HPDL
-        if ":hierarchy" in set(domain_res.get("features", [])):
+        # TODO Pensar si necesitamos distinguir en "features" que estamos parseando HPDL
 
         if ":hierarchy" in set(
             domain_res.get("features", [])
@@ -873,8 +866,8 @@ class HPDLReader:
                 self._env,
                 initial_defaults={self._tm.BoolType(): self._em.FALSE()},
             )
-        
-        #TODO: Comprobar que los tipos se parsean correctamente
+
+        # TODO: Comprobar que los tipos se parsean correctamente
 
         # TODO: Maybe we need to make this vars properties of the class
         # To easily access them in the methods
@@ -916,7 +909,7 @@ class HPDLReader:
 
         self.has_actions_cost = False
 
-        #TODO No debería haber problema con los predicados, tienen la misma repr. que en HPDL
+        # TODO No debería haber problema con los predicados, tienen la misma repr. que en HPDL
 
         for p in domain_res.get("predicates", []):
             n = p[0]
@@ -928,15 +921,15 @@ class HPDLReader:
             f = up.model.Fluent(n, self._tm.BoolType(), params, self._env)
             problem.add_fluent(f)
 
-        #TODO   DERIVED PREDICATES Hay que añadir problem.add_derived_predicate() y esto tendría que ser en una 
+        # TODO   DERIVED PREDICATES Hay que añadir problem.add_derived_predicate() y esto tendría que ser en una
         #       nueva subclase de HierarchicalProblem, que podríamos llamar HPDLProblem
 
         # TODO  Las funciones pddl se gestionan y se añaden como un fluent especial "con un tipo real".
         #       un fluent en el upfmodel es [name, type, signature], donde signature son los parámetros.
-        #       habría que 
+        #       habría que
         #               o bien cambiar la definición de la clase fluent en el upfmodel
         #               o bien crear una subclase de HierarchicalProblem, que sea, HPDLProblem, CREO  que esto es lo ideal
-        #                 porque un HPDLProblem tiene los mismos atributos que un HierarchicalProblem, y un conjunto 
+        #                 porque un HPDLProblem tiene los mismos atributos que un HierarchicalProblem, y un conjunto
         #                 adicional como derived predicates y functions que se implementan con python.
         # TODO AÑADIR la funcion problem.add_pythonfunction(f)
         for p in domain_res.get("functions", []):
@@ -952,7 +945,7 @@ class HPDLReader:
                 self._totalcost = cast(up.model.FNode, self._em.FluentExp(f))
             problem.add_fluent(f)
 
-        #TODO Comprobar las constantes, que no deberían  dar problema
+        # TODO Comprobar las constantes, que no deberían  dar problema
         for g in domain_res.get("constants", []):
             t = self.types_map[g[1] if len(g) > 1 else "object"]
             for o in g[0]:
