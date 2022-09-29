@@ -201,8 +201,8 @@ class HPDLGrammar:
             + parameters
             + Suppress(")")
             ###TODO Una lista de uno o más metodos
-            + OneOrMore(method_def).setResultsName("methods_of")
-            + Suppress(")")
+            # + OneOrMore(method_def).setResultsName("methods_of")
+            # + Suppress(")")
             + Group(OneOrMore(method_def)).setResultsName("methods")
             + Suppress(")")
         )
