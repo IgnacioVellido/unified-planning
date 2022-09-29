@@ -19,8 +19,9 @@ from typing import cast
 import pytest
 import unified_planning
 from unified_planning.engines import PlanGenerationResultStatus
-from unified_planning.io import PDDLReader, PDDLWriter
+# from unified_planning.io import HPDLReader, HPDLWriter
 from unified_planning.io.hpdl_reader import HPDLReader
+from unified_planning.io.hpdl_writer import HPDLWriter
 from unified_planning.model.problem_kind import full_numeric_kind
 from unified_planning.model.types import _UserType
 from unified_planning.shortcuts import *
@@ -44,9 +45,15 @@ class TestHpdlIO(TestCase):
     def test_hpdl_reader(self):
         reader = HPDLReader()
 
-        domain_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "domain.hpdl")
-        problem_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "problem.hpdl")
+        domain_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "vgdl/domain.hpdl")
+        problem_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "vgdl/problem.hpdl")
         problem = reader.parse_problem(domain_filename, problem_filename)
+
+        # writer = HPDLWriter(problem)
+        # hpdl_domain = writer.get_domain()
+        # print(hpdl_domain)
+        # hpdl_problem = writer.get_problem()
+        # print(hpdl_problem)
 
         assert isinstance(problem, up.model.htn.HierarchicalProblem)
         self.assertEqual(24, len(problem.fluents))
