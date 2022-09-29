@@ -940,9 +940,20 @@ class HPDLReader:
                 task_model = problem.get_task(task["name"])
                 task_params = task_model.parameters
 
-                method_model = htn.Method(method_name, task_params)
+                subtasks = []
+                subtasks_params = []
 
+                for subs in method.get("subtasks", []):
+                    subs = self._parse_subtasks(subs, None, problem, self.types_map)
+                    for s in subs:
+                        subtasks.append(s)
+                        subtasks_params.append(s.parameters)
+                        # method_model.add_subtask(s)
+
+                method_model = htn.Method(method_name, task_params + subtasks_params)
                 method_model.set_task(task_model)
+                for s in subtasks:
+                    method_model.add_subtask(s)
 
                 method_preconditions = method.get("preconditions", [])
                 for pre in method_preconditions:
@@ -953,12 +964,6 @@ class HPDLReader:
                 #     for s in ord_subs:
                 #         method.add_subtask(s)
                 #     method.set_ordered(*ord_subs)
-                for subs in method.get("subtasks", []):
-                    subs = self._parse_subtasks(
-                        subs, method_model, problem, self.types_map
-                    )
-                    for s in subs:
-                        method_model.add_subtask(s)
                 problem.add_method(method_model)
 
         if problem_filename is not None:
