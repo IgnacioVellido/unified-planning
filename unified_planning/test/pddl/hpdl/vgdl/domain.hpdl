@@ -186,6 +186,9 @@
 		(:method turn
 				:precondition (
 								)
+				:meta (
+					(:tag prettyprint "?d,?start,?end,?duration,Driving,?weekcount,?daycount,?dayctxt,?seqctxt,?drivctxt,?tkctxt,?legalctxt")
+				)
 				:tasks (  
 						)
 		)
