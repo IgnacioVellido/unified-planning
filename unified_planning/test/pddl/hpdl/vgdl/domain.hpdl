@@ -187,8 +187,7 @@
 				:precondition (
 								)
 				:meta (
-					(:tag prettyprint)
-					; (:tag prettyprint "?d,?start,?end,?duration,Driving,?weekcount,?daycount,?dayctxt,?seqctxt,?drivctxt,?tkctxt,?legalctxt")
+					(:tag prettyprint "?d,?start,?end,?duration,Driving,?weekcount,?daycount,?dayctxt,?seqctxt,?drivctxt,?tkctxt,?legalctxt")
 				)
 				:tasks (  
 						)

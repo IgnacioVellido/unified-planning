@@ -2,13 +2,11 @@ import typing
 from collections import OrderedDict
 from fractions import Fraction
 from itertools import product
-from string import printable
 from typing import Callable, Dict, List, Tuple, Union, cast
-
-from pyparsing import printables
 
 import pyparsing
 import unified_planning as up
+from unified_planning.model import expression
 import unified_planning.model.htn as htn
 import unified_planning.model.walkers
 from pyparsing import (
@@ -21,6 +19,8 @@ from pyparsing import (
     ZeroOrMore,
     alphanums,
     alphas,
+    QuotedString,
+    nums,
     nestedExpr,
     restOfLine,
 )
@@ -41,9 +41,59 @@ else:
 class HPDLGrammar:
     def __init__(self):
         name = Word(alphas, alphanums + "_" + "-")
-        variable = Suppress("?") + name
+        number = Word(nums + '.' + "-")
+        
+        # To define subtypes
+        # obj1 obj2 - parent
+        name_list = Group(
+            Group(OneOrMore(name))
+            + Optional(Suppress("-") + name)
+        )
 
-        require_def = (
+        variable = Suppress("?") + name
+        typed_variables = Group(
+            Group(OneOrMore(variable)).setResultsName("variables")
+            + Optional(Suppress("-") + name).setResultsName("type")
+        )
+
+        # Group of one or more variable and optionally their type
+        parameters = Group(
+            ZeroOrMore(typed_variables)
+        ).setResultsName("params")
+
+        # Any predicate with/without parameters
+        predicate = (
+            Suppress("(")
+            + Group(
+                name.setResultsName("name")
+                + parameters
+            )
+            + Suppress(")")
+        )
+
+        # List of predicates
+        and_predicate = (
+            Suppress("(")
+            + "and"
+            + Group(OneOrMore(predicate)) # | operation))
+            + Suppress(")")
+        )
+
+        operator = one_of(
+            "and or not imply >= <= > < = + - / * increase decrease         assign scale-up scale-down"
+        ).setResultsName("operator")
+
+        operation = Group(
+            Suppress("(")
+            + operator
+            + (number | predicate).setResultsName("operand1")
+            + (number | predicate).setResultsName("operand2")
+            + Suppress(")")
+        )
+
+        # ----------------------------------------------------------
+        # Sections
+        sec_requirements = (
             Suppress("(")
             + ":requirements"
             + OneOrMore(
@@ -54,49 +104,32 @@ class HPDLGrammar:
             + Suppress(")")
         )
 
-        types_def = (
+        sec_types = (
             Suppress("(")
             + ":types"
-            + OneOrMore(
-                Group(Group(OneOrMore(name)) + Optional(Suppress("-") + name))
-            ).setResultsName("types")
+            + OneOrMore(name_list).setResultsName("types")
             + Suppress(")")
         )
 
-        constants_def = (
+        # Same as sec_types
+        sec_constants = (
             Suppress("(")
             + ":constants"
-            + Optional(
-                OneOrMore(
-                    Group(Group(OneOrMore(name)) + Optional(Suppress("-") + name))
-                ).setResultsName("constants")
-            )
+            # + Optional(
+            + OneOrMore(name_list).setResultsName("constants")
+            # )
             + Suppress(")")
         )
 
-        predicate = (
-            Suppress("(")
-            + Group(
-                name
-                + Group(
-                    ZeroOrMore(
-                        Group(
-                            Group(OneOrMore(variable)) + Optional(Suppress("-") + name)
-                        )
-                    )
-                )
-            )
-            + Suppress(")")
-        )
-
-        predicates_def = (
+        sec_predicates = (
             Suppress("(")
             + ":predicates"
             + Group(OneOrMore(predicate)).setResultsName("predicates")
             + Suppress(")")
         )
 
-        functions_def = (
+        # Functions can specify -number type
+        sec_functions = (
             Suppress("(")
             + ":functions"
             + Group(
@@ -105,11 +138,19 @@ class HPDLGrammar:
             + Suppress(")")
         )
 
-        parameters = ZeroOrMore(
-            Group(Group(OneOrMore(variable)) + Optional(Suppress("-") + name))
-        ).setResultsName("params")
+        # derived evaluates an expression and returns a boolean?
+        derived = Group(
+            Suppress("(")
+            + ":derived"
+            + nestedExpr().setResultsName("pre")
+            + nestedExpr().setResultsName("post")
+            + Suppress(")")
+        )
+        
+        # ----------------------------------------------------------
+        # Actions
 
-        action_def = Group(
+        action = Group(
             Suppress("(")
             + ":action"
             + name.setResultsName("name")
@@ -122,7 +163,7 @@ class HPDLGrammar:
             + Suppress(")")
         )
 
-        dur_action_def = Group(
+        dur_action = Group(
             Suppress("(")
             + ":durative-action"
             + name.setResultsName("name")
@@ -139,79 +180,75 @@ class HPDLGrammar:
             + Suppress(")")
         )
 
+        # ----------------------------------------------------------
+
+        # TODO: Extend to other tags
         tag_def = Group(
             Suppress("(")
             + ":tag"
-            # TODO: Look how printables work and finish this
-            # + Word(printables.)
             + "prettyprint"
+            + QuotedString('"')
             + Suppress(")")
         )
 
-        # inline_def = Group(
-        #     Suppress("(")
-        #     + ":inline"
-        #     + nestedExpr().setResultsName("cond")
-        #     + nestedExpr().setResultsName("eff")
-        #     + Suppress(")")
-        # )
+        # ----------------------------------------------------------
+        # HTN
 
-        # hpdl_subtask = Group(
-        #     Suppress("(")
-        #     + Group(OneOrMore(inline_def | nestedExpr())).setResultsName("subtasks")
-        #     + Suppress(")")
-        # )
+        # nestedExpr in case we missed something
+        inline_def = Group(
+            Suppress("(")
+            + ":inline"
+            + (predicate | and_predicate | operation | nestedExpr()).setResultsName("cond")
+            + (predicate | and_predicate | operation | nestedExpr()).setResultsName("eff")
+            + Suppress(")")
+        ).setResultsName("inline")
 
-        method_def = Group(
+        subtask_def = Group(
+            Suppress("(")
+            + name.setResultsName("name")
+            + parameters
+            + Suppress(")")
+        ).setResultsName("subtask")
+
+        method = Group(
             Suppress("(")
             + ":method"
             + name.setResultsName("name")
+            
             + ":precondition"
             + nestedExpr().setResultsName("pre")
-            # TODO: Method params are defined in task, needs to be set
-            # + ":parameters"
-            # + Suppress("(")
-            # + parameters
-            # + Suppress(")")
-            # + ":task"
-            # + nestedExpr().setResultsName("task") # TODO: Task is parent, Needs this variable to be set?
+            
             # TODO: Set order
-            # + Optional(
-            #     ":ordered-subtasks" + nestedExpr().setResultsName("ordered-subtasks")
-            # )
             + Optional(
                 ":meta" + Suppress("(") + OneOrMore(tag_def) + Suppress(")")
             )
+
             + ":tasks"
-            + nestedExpr().setResultsName("subtasks")
-            # TODO: Include :inline? Are they needed
-            # + hpdl_subtask.setResultsName("subtasks")
-            # + nestedExpr().setResultsName("subtasks")
+            + Suppress("(")
+            + Group(
+                ZeroOrMore(inline_def | subtask_def)
+            ).setResultsName("subtasks")
+            + Suppress(")")
+
             + Suppress(")")
         )
 
-        task_def = Group(
+        task = Group(
             Suppress("(")
             + ":task"
             + name.setResultsName("name")
+            
             + ":parameters"
             + Suppress("(")
+            
             + parameters
             + Suppress(")")
-            ###TODO Una lista de uno o más metodos
-            # + OneOrMore(method_def).setResultsName("methods_of")
-            # + Suppress(")")
-            + Group(OneOrMore(method_def)).setResultsName("methods")
+            
+            + Group(OneOrMore(method)).setResultsName("methods")
             + Suppress(")")
         )
 
-        derived_def = Group(
-            Suppress("(")
-            + ":derived"
-            + nestedExpr().setResultsName("pre")
-            + nestedExpr().setResultsName("post")
-            + Suppress(")")
-        )
+        # ----------------------------------------------------------
 
         domain = (
             Suppress("(")
@@ -220,30 +257,31 @@ class HPDLGrammar:
             + "domain"
             + name.setResultsName("name")
             + Suppress(")")
-            + Optional(require_def).setResultsName("features")
-            + Optional(types_def)
-            + Optional(constants_def)
-            + Optional(predicates_def)
-            + Optional(functions_def)
-            + Group(ZeroOrMore(derived_def)).setResultsName("derived")
-            + Group(ZeroOrMore(task_def)).setResultsName("tasks")
-            # + Group(ZeroOrMore(method_def)).setResultsName("methods")
-            + Group(ZeroOrMore(action_def | dur_action_def)).setResultsName("actions")
+            + Optional(sec_requirements).setResultsName("features")
+            + Optional(sec_types)
+            + Optional(sec_constants)
+            + Optional(sec_predicates)
+            + Optional(sec_functions)
+            + Group(ZeroOrMore(derived)).setResultsName("derived")
+            + Group(ZeroOrMore(task)).setResultsName("tasks")
+            + Group(ZeroOrMore(action | dur_action)).setResultsName("actions")
             + Suppress(")")
         )
+
+        # ----------------------------------------------------------
 
         objects = OneOrMore(
             Group(Group(OneOrMore(name)) + Optional(Suppress("-") + name))
         ).setResultsName("objects")
 
-        htn_def = Group(
-            Suppress("(")
-            + ":htn"
-            + Optional(":tasks" + nestedExpr().setResultsName("tasks"))
-            + Optional(":ordering" + nestedExpr().setResultsName("ordering"))
-            + Optional(":constraints" + nestedExpr().setResultsName("constraints"))
-            + Suppress(")")
-        )
+        # htn_def = Group(
+        #     Suppress("(")
+        #     + ":htn"
+        #     + Optional(":tasks" + nestedExpr().setResultsName("tasks"))
+        #     + Optional(":ordering" + nestedExpr().setResultsName("ordering"))
+        #     + Optional(":constraints" + nestedExpr().setResultsName("constraints"))
+        #     + Suppress(")")
+        # )
 
         metric = (Keyword("minimize") | Keyword("maximize")).setResultsName(
             "optimization"
@@ -257,6 +295,8 @@ class HPDLGrammar:
             + Suppress(")")
         )
 
+        # ----------------------------------------------------------
+
         problem = (
             Suppress("(")
             + "define"
@@ -268,9 +308,9 @@ class HPDLGrammar:
             + ":domain"
             + name
             + Suppress(")")
-            + Optional(require_def)
+            + Optional(sec_requirements)
             + Optional(Suppress("(") + ":objects" + objects + Suppress(")"))
-            + Optional(htn_def.setResultsName("htn"))
+            # + Optional(htn_def.setResultsName("htn"))
             + Suppress("(")
             + ":init"
             + ZeroOrMore(nestedExpr()).setResultsName("init")
@@ -279,6 +319,8 @@ class HPDLGrammar:
             + Optional(Suppress("(") + ":metric" + metric + Suppress(")"))
             + Suppress(")")
         )
+
+        # ----------------------------------------------------------
 
         domain.ignore(";" + restOfLine)
         problem.ignore(";" + restOfLine)
