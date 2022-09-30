@@ -357,95 +357,95 @@ class HPDLReader:
         self.universal_assignments: Dict["model.Action", List[ParseResults]] = {}
         self.has_actions_cost: bool = False
 
-    def _parse_exp(
-        self,
-        problem: model.Problem,
-        act: typing.Optional[Union[model.Action, htn.Method]],
-        types_map: Dict[str, model.Type],
-        var: Dict[str, model.Variable],
-        exp: Union[ParseResults, str],
-        assignments: Dict[str, "model.Object"] = {},
-    ) -> model.FNode:
-        stack = [(var, exp, False)]
-        solved: List[model.FNode] = []
-        while len(stack) > 0:
-            var, exp, status = stack.pop()
-            if status:
-                if exp[0] == "-" and len(exp) == 2:  # unary minus
-                    solved.append(self._em.Times(-1, solved.pop()))
-                elif exp[0] in self._operators:  # n-ary operators
-                    op: Callable = self._operators[exp[0]]
-                    solved.append(op(*[solved.pop() for _ in exp[1:]]))
-                elif exp[0] in ["exists", "forall"]:  # quantifier operators
-                    q_op: Callable = (
-                        self._em.Exists if exp[0] == "exists" else self._em.Forall
-                    )
-                    solved.append(q_op(solved.pop(), *var.values()))
-                elif problem.has_fluent(exp[0]):  # fluent reference
-                    f = problem.fluent(exp[0])
-                    args = [solved.pop() for _ in exp[1:]]
-                    solved.append(self._em.FluentExp(f, tuple(args)))
-                elif exp[0] in assignments:  # quantified assignment variable
-                    assert len(exp) == 1
-                    solved.append(self._em.ObjectExp(assignments[exp[0]]))
-                else:
-                    raise up.exceptions.UPUnreachableCodeError
-            else:
-                if isinstance(exp, ParseResults):
-                    if len(exp) == 0:  # empty precodition
-                        solved.append(self._em.TRUE())
-                    elif exp[0] == "-" and len(exp) == 2:  # unary minus
-                        stack.append((var, exp, True))
-                        stack.append((var, exp[1], False))
-                    elif exp[0] in self._operators:  # n-ary operators
-                        stack.append((var, exp, True))
-                        for e in exp[1:]:
-                            stack.append((var, e, False))
-                    elif exp[0] in ["exists", "forall"]:  # quantifier operators
-                        vars_string = " ".join(exp[1])
-                        vars_res = self._pp_parameters.parseString(vars_string)
-                        vars = {}
-                        for g in vars_res["params"]:
-                            t = types_map[g[1] if len(g) > 1 else "object"]
-                            for o in g[0]:
-                                vars[o] = model.Variable(o, t, self._env)
-                        stack.append((vars, exp, True))
-                        stack.append((vars, exp[2], False))
-                    elif problem.has_fluent(exp[0]):  # fluent reference
-                        stack.append((var, exp, True))
-                        for e in exp[1:]:
-                            stack.append((var, e, False))
-                    elif exp[0] in assignments:  # quantified assignment variable
-                        assert len(exp) == 1
-                        stack.append((var, exp, True))
-                    elif len(exp) == 1:  # expand an element inside brackets
-                        stack.append((var, exp[0], False))
-                    else:
-                        raise SyntaxError(f"Not able to handle: {exp}")
-                elif isinstance(exp, str):
-                    if (
-                        exp[0] == "?" and exp[1:] in var
-                    ):  # variable in a quantifier expression
-                        solved.append(self._em.VariableExp(var[exp[1:]]))
-                    elif exp in assignments:  # quantified assignment variable
-                        solved.append(self._em.ObjectExp(assignments[exp]))
-                    elif exp[0] == "?":  # action parameter
-                        assert act is not None
-                        solved.append(self._em.ParameterExp(act.parameter(exp[1:])))
-                    elif problem.has_fluent(exp):  # fluent
-                        solved.append(self._em.FluentExp(problem.fluent(exp)))
-                    elif problem.has_object(exp):  # object
-                        solved.append(self._em.ObjectExp(problem.object(exp)))
-                    else:  # number
-                        n = Fraction(exp)
-                        if n.denominator == 1:
-                            solved.append(self._em.Int(n.numerator))
-                        else:
-                            solved.append(self._em.Real(n))
-                else:
-                    raise SyntaxError(f"Not able to handle: {exp}")
-        assert len(solved) == 1  # sanity check
-        return solved.pop()
+    # def _parse_exp(
+    #     self,
+    #     problem: model.Problem,
+    #     act: typing.Optional[Union[model.Action, htn.Method]],
+    #     types_map: Dict[str, model.Type],
+    #     var: Dict[str, model.Variable],
+    #     exp: Union[ParseResults, str],
+    #     assignments: Dict[str, "model.Object"] = {},
+    # ) -> model.FNode:
+    #     stack = [(var, exp, False)]
+    #     solved: List[model.FNode] = []
+    #     while len(stack) > 0:
+    #         var, exp, status = stack.pop()
+    #         if status:
+    #             if exp[0] == "-" and len(exp) == 2:  # unary minus
+    #                 solved.append(self._em.Times(-1, solved.pop()))
+    #             elif exp[0] in self._operators:  # n-ary operators
+    #                 op: Callable = self._operators[exp[0]]
+    #                 solved.append(op(*[solved.pop() for _ in exp[1:]]))
+    #             elif exp[0] in ["exists", "forall"]:  # quantifier operators
+    #                 q_op: Callable = (
+    #                     self._em.Exists if exp[0] == "exists" else self._em.Forall
+    #                 )
+    #                 solved.append(q_op(solved.pop(), *var.values()))
+    #             elif problem.has_fluent(exp[0]):  # fluent reference
+    #                 f = problem.fluent(exp[0])
+    #                 args = [solved.pop() for _ in exp[1:]]
+    #                 solved.append(self._em.FluentExp(f, tuple(args)))
+    #             elif exp[0] in assignments:  # quantified assignment variable
+    #                 assert len(exp) == 1
+    #                 solved.append(self._em.ObjectExp(assignments[exp[0]]))
+    #             else:
+    #                 raise up.exceptions.UPUnreachableCodeError
+    #         else:
+    #             if isinstance(exp, ParseResults):
+    #                 if len(exp) == 0:  # empty precodition
+    #                     solved.append(self._em.TRUE())
+    #                 elif exp[0] == "-" and len(exp) == 2:  # unary minus
+    #                     stack.append((var, exp, True))
+    #                     stack.append((var, exp[1], False))
+    #                 elif exp[0] in self._operators:  # n-ary operators
+    #                     stack.append((var, exp, True))
+    #                     for e in exp[1:]:
+    #                         stack.append((var, e, False))
+    #                 elif exp[0] in ["exists", "forall"]:  # quantifier operators
+    #                     vars_string = " ".join(exp[1])
+    #                     vars_res = self._pp_parameters.parseString(vars_string)
+    #                     vars = {}
+    #                     for g in vars_res["params"]:
+    #                         t = types_map[g[1] if len(g) > 1 else "object"]
+    #                         for o in g[0]:
+    #                             vars[o] = model.Variable(o, t, self._env)
+    #                     stack.append((vars, exp, True))
+    #                     stack.append((vars, exp[2], False))
+    #                 elif problem.has_fluent(exp[0]):  # fluent reference
+    #                     stack.append((var, exp, True))
+    #                     for e in exp[1:]:
+    #                         stack.append((var, e, False))
+    #                 elif exp[0] in assignments:  # quantified assignment variable
+    #                     assert len(exp) == 1
+    #                     stack.append((var, exp, True))
+    #                 elif len(exp) == 1:  # expand an element inside brackets
+    #                     stack.append((var, exp[0], False))
+    #                 else:
+    #                     raise SyntaxError(f"Not able to handle: {exp}")
+    #             elif isinstance(exp, str):
+    #                 if (
+    #                     exp[0] == "?" and exp[1:] in var
+    #                 ):  # variable in a quantifier expression
+    #                     solved.append(self._em.VariableExp(var[exp[1:]]))
+    #                 elif exp in assignments:  # quantified assignment variable
+    #                     solved.append(self._em.ObjectExp(assignments[exp]))
+    #                 elif exp[0] == "?":  # action parameter
+    #                     assert act is not None
+    #                     solved.append(self._em.ParameterExp(act.parameter(exp[1:])))
+    #                 elif problem.has_fluent(exp):  # fluent
+    #                     solved.append(self._em.FluentExp(problem.fluent(exp)))
+    #                 elif problem.has_object(exp):  # object
+    #                     solved.append(self._em.ObjectExp(problem.object(exp)))
+    #                 else:  # number
+    #                     n = Fraction(exp)
+    #                     if n.denominator == 1:
+    #                         solved.append(self._em.Int(n.numerator))
+    #                     else:
+    #                         solved.append(self._em.Real(n))
+    #             else:
+    #                 raise SyntaxError(f"Not able to handle: {exp}")
+    #     assert len(solved) == 1  # sanity check
+    #     return solved.pop()
 
     def _add_effect(
         self,
@@ -930,12 +930,12 @@ class HPDLReader:
         return model.Fluent(name, self._tm.BoolType(), params, self._env)
 
     def _parse_params(self, params: List[str]) -> OrderedDict:
-        params = OrderedDict()
+        res_params = OrderedDict()
         for g in params:
             param_type = self.types_map[g[1] if len(g) > 1 else "object"]
             for param_name in g[0]:
-                params[param_name] = param_type
-        return params
+                res_params[param_name] = param_type
+        return res_params
 
     def _parse_function(self, func: OrderedDict) -> model.Fluent:
         name = func[0]
@@ -972,14 +972,20 @@ class HPDLReader:
         var: Dict[str, model.Variable],
         exp: str,
         assignments: Dict[str, "model.Object"] = {},
+        aviable_params: typing.Optional[
+            OrderedDict[str, "model.Type"]
+        ] = None,  # If we are parsing a precondition or effect, we need to know the valid parameters
     ) -> model.FNode:
         if exp[0] == "?" and exp[1:] in var:  # variable in a quantifier expression
             return self._em.VariableExp(var[exp[1:]])
         elif exp in assignments:  # quantified assignment variable
             return self._em.ObjectExp(assignments[exp])
         elif exp[0] == "?":  # action parameter
+            assert aviable_params is not None, "valid_params cannot be None"
+            assert exp[1:] in aviable_params, f"Invalid parameter {exp[1:]}"
+
             return self._em.ParameterExp(
-                model.Parameter(exp[1:], self._tm.ObjectType())
+                model.Parameter(exp[1:], aviable_params[exp[1:]], self._env)
             )
         elif self.problem.has_fluent(exp):  # fluent
             return self._em.FluentExp(self.problem.fluent(exp))
@@ -997,7 +1003,10 @@ class HPDLReader:
         var: Dict[str, model.Variable],
         exp: ParseResults,
         assignments: Dict[str, "model.Object"],
-    ) -> Tuple[Union[model.FNode, None], Union[List[Tuple[Any, Any, Any]], None]]:
+    ) -> Tuple[
+        Union[model.FNode, None], Union[List[Tuple[typing.Any, typing.Any, bool]], None]
+    ]:
+        print(f"Handling {exp}")
         if len(exp) == 0:  # empty precodition
             return self._em.TRUE(), None
         elif exp[0] == "-" and len(exp) == 2:  # unary minus
@@ -1031,10 +1040,12 @@ class HPDLReader:
 
     def _parse_exp(
         self,
-        # parameters: typing.Optional[Union[model.Action, htn.Method]],
         var: Dict[str, model.Variable],
         exp: Union[ParseResults, str],
         assignments: Dict[str, "model.Object"] = {},
+        aviable_params: typing.Optional[
+            OrderedDict[str, "model.Type"]
+        ] = None,  # If we are parsing a precondition or effect, we need to know the valid parameters
     ) -> model.FNode:
         stack = [(var, exp, False)]
         solved: List[model.FNode] = []
@@ -1070,7 +1081,8 @@ class HPDLReader:
                     if new_stack:
                         stack.extend(new_stack)
                 elif isinstance(exp, str):
-                    node = self._parse_exp_str(var, exp, assignments)
+                    # Instead of having to pass the action already build, we can pass the aviable parameters
+                    node = self._parse_exp_str(var, exp, assignments, aviable_params)
                     solved.append(node)
                 else:
                     raise SyntaxError(f"Not able to handle: {exp}")
@@ -1079,17 +1091,16 @@ class HPDLReader:
 
     def _parse_effect(
         self,
-        act: Union[model.InstantaneousAction, model.DurativeAction],
-        universal_assignments: typing.Optional[
-            Dict["model.Action", List[ParseResults]]
-        ],
         exp: Union[ParseResults, str],
         cond: Union[model.FNode, bool] = True,
         timing: typing.Optional[model.Timing] = None,
         assignments: Dict[str, "model.Object"] = {},
+        aviable_params: typing.Optional[OrderedDict[str, "model.Type"]] = None,
     ) -> List[typing.Any]:
         to_add = [(exp, cond)]
-        res = []
+        result: List[
+            Tuple[model.FNode, model.FNode, Union[model.FNode, bool], str]
+        ] = []
         while to_add:
             exp, cond = to_add.pop(0)
             if len(exp) == 0:
@@ -1100,69 +1111,62 @@ class HPDLReader:
                 for e in exp:
                     to_add.append((e, cond))
             elif op == "when":
-                cond = self._parse_exp(
-                    self.problem, act, self.types_map, {}, exp[1], assignments
-                )
+                cond = self._parse_exp({}, exp[1], assignments, aviable_params)
                 to_add.append((exp[2], cond))
             elif op == "not":
                 exp = exp[1]
                 eff = (
-                    self._parse_exp(
-                        self.problem, act, self.types_map, {}, exp, assignments
-                    ),
+                    self._parse_exp({}, exp, assignments, aviable_params),
                     self._em.FALSE(),
                     cond,
+                    op,
                 )
-                res.append(eff)
-                act.add_effect(*eff if timing is None else (timing, *eff))  # type: ignore
+                result.append(eff)
+                # act.add_effect(*eff if timing is None else (timing, *eff))  # type: ignore
             elif op == "assign":
                 eff = (
-                    self._parse_exp(
-                        self.problem, act, self.types_map, {}, exp[1], assignments
-                    ),
-                    self._parse_exp(
-                        self.problem, act, self.types_map, {}, exp[2], assignments
-                    ),
+                    self._parse_exp({}, exp[1], assignments, aviable_params),
+                    self._parse_exp({}, exp[2], assignments, aviable_params),
                     cond,
+                    op,
                 )
-                act.add_effect(*eff if timing is None else (timing, *eff))  # type: ignore
+                result.append(eff)
+                # act.add_effect(*eff if timing is None else (timing, *eff))  # type: ignore
             elif op == "increase":
                 eff = (
-                    self._parse_exp(
-                        self.problem, act, self.types_map, {}, exp[1], assignments
-                    ),
-                    self._parse_exp(
-                        self.problem, act, self.types_map, {}, exp[2], assignments
-                    ),
+                    self._parse_exp({}, exp[1], assignments, aviable_params),
+                    self._parse_exp({}, exp[2], assignments, aviable_params),
                     cond,
+                    op,
                 )
-                act.add_increase_effect(*eff if timing is None else (timing, *eff))  # type: ignore
+                result.append(eff)
+                # act.add_increase_effect(*eff if timing is None else (timing, *eff))  # type: ignore
             elif op == "decrease":
                 eff = (
-                    self._parse_exp(
-                        self.problem, act, self.types_map, {}, exp[1], assignments
-                    ),
-                    self._parse_exp(
-                        self.problem, act, self.types_map, {}, exp[2], assignments
-                    ),
+                    self._parse_exp({}, exp[1], assignments, aviable_params),
+                    self._parse_exp({}, exp[2], assignments, aviable_params),
                     cond,
+                    op,
                 )
-                act.add_decrease_effect(*eff if timing is None else (timing, *eff))  # type: ignore
+                result.append(eff)
+                # act.add_decrease_effect(*eff if timing is None else (timing, *eff))  # type: ignore
             elif op == "forall":
                 assert isinstance(exp, ParseResults)
                 # Get the list of universal_assignments linked to this action. If it does not exist, default it to the empty list
-                assert universal_assignments is not None
-                action_assignments = universal_assignments.setdefault(act, [])
-                action_assignments.append(exp)
+                # assert self.universal_assignments is not None
+                # action_assignments = self.universal_assignments.setdefault(act, [])
+                # action_assignments.append(exp)
             else:
                 eff = (
-                    self._parse_exp(
-                        self.problem, act, self.types_map, {}, exp, assignments
-                    ),
+                    self._parse_exp({}, exp, assignments, aviable_params),
                     self._em.TRUE(),
                     cond,
+                    None,
                 )
-                act.add_effect(*eff if timing is None else (timing, *eff))  # type: ignore
+                result.append(eff)
+                # act.add_effect(*eff if timing is None else (timing, *eff))  # type: ignore
+
+        return result
 
     def _parse_subtask(self, subtask: OrderedDict):
         pass
@@ -1247,6 +1251,9 @@ class HPDLReader:
                 self._parse_exp(self.problem, act, self.types_map, {}, pre)
             )
         if len(eff):
+            act.add_effect()
+            act.add_increase_effect()
+            act.add_decrease_effect()
             self._add_effect(
                 self.problem, act, self.types_map, self.universal_assignments, eff
             )
@@ -1261,7 +1268,6 @@ class HPDLReader:
         self, action: OrderedDict
     ) -> Tuple[str, OrderedDict, bool, List[str], List[model.Fluent]]:
         """Parses an action from the domain and return the name and the parameters"""
-        """Parses an action from the domain and adds it to the problem"""
         action_name = action["name"]
         a_params = self._parse_params(action["params"])
         durative = False
@@ -1279,48 +1285,43 @@ class HPDLReader:
         res["duration"] = duration
 
         if "pre" in action:
-            res["pre"] = self._parse_exp(
-                problem, act, self.types_map, {}, action["pre"][0]
-            )
+            res["pre"] = self._parse_exp({}, action["pre"][0], {}, a_params)
+
         if "eff" in action:
-            self._add_effect(
-                problem,
-                act,
-                self.types_map,
-                self.universal_assignments,
-                action["eff"][0],
-            )
+            res["eff"] = self._parse_effect(action["eff"][0], False, None, {}, a_params)
+            # res["eff"] = self._parse_exp({}, action["eff"][0], {}, a_params)
 
-        act = model.InstantaneousAction(action_name, a_params, self._env)
-        pre = [self._parse_exp(problem, act, self.types_map, {}, action["pre"][0])]
+        print("res", res)
 
-        if "pre" in action:
-            act.add_precondition(
-                self._parse_exp(problem, act, self.types_map, {}, action["pre"][0])
-            )
+        raise NotImplementedError("TODO: implement this method")
         if "eff" in action:
-            self._add_effect(
-                problem,
-                act,
-                self.types_map,
-                self.universal_assignments,
-                action["eff"][0],
-            )
-        # problem.add_action(act)
-        # Do we need to do it here? it comes from _parse_problem method
-        self.has_actions_cost = (
-            self.has_actions_cost and self._instantaneous_action_has_cost(act)
-        )
-        return act
+            self._parse_effect(action["eff"][0], {}, a_params)
 
-    def _build_action(
-        self,
-        name: str,
-        params: List[model.Parameter],
-        preconditions: List[typing.Any],  # TODO: Decide type
-        effects: List[typing.Any],  # TODO: Decide type
-    ) -> model.Action:
-        return model.Action(name, params, self._env)
+        # res["eff"] = self._parse_exp(self.types_map, action["eff"][0], {}, a_params)
+
+        return res
+
+        # act = model.InstantaneousAction(action_name, a_params, self._env)
+        # pre = [self._parse_exp(self.problem, act, self.types_map, {}, action["pre"][0])]
+
+        # if "pre" in action:
+        #     act.add_precondition(
+        #         self._parse_exp(self.problem, act, self.types_map, {}, action["pre"][0])
+        #     )
+        # if "eff" in action:
+        #     self._add_effect(
+        #         self.problem,
+        #         act,
+        #         self.types_map,
+        #         self.universal_assignments,
+        #         action["eff"][0],
+        #     )
+        # # problem.add_action(act)
+        # # Do we need to do it here? it comes from _parse_problem method
+        # self.has_actions_cost = (
+        #     self.has_actions_cost and self._instantaneous_action_has_cost(act)
+        # )
+        # return act
 
     # _________________________________________________________
 
@@ -1392,12 +1393,14 @@ class HPDLReader:
 
         for a in domain_res.get("actions", []):
             self._parse_action(a)
-            self._parse_action(
-                a,
-                self.problem,
-                self.types_map,
-                self.universal_assignments,
-            )
+
+        raise NotImplementedError("TODO")
+        # self._parse_action(
+        #     a,
+        #     self.problem,
+        #     self.types_map,
+        #     self.universal_assignments,
+        # )
 
         # Methods are defined inside tasks;
         # we need to parse them after all tasks and actions have been defined
