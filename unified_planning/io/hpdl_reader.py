@@ -642,7 +642,6 @@ class HPDLReader:
         if len(e) == 0:
             return None
         task_name = e[0]
-        print(f"task_name: {task_name}")
         task: Union[htn.Task, model.Action]
         if problem.has_task(task_name):
             task = problem.get_task(task_name)
@@ -1006,7 +1005,6 @@ class HPDLReader:
     ) -> Tuple[
         Union[model.FNode, None], Union[List[Tuple[typing.Any, typing.Any, bool]], None]
     ]:
-        print(f"Handling {exp}")
         if len(exp) == 0:  # empty precodition
             return self._em.TRUE(), None
         elif exp[0] == "-" and len(exp) == 2:  # unary minus
@@ -1081,7 +1079,7 @@ class HPDLReader:
                     if new_stack:
                         stack.extend(new_stack)
                 elif isinstance(exp, str):
-                    # Instead of having to pass the action already build, we can pass the aviable parameters
+                    # Instead of having to pass the action already built, we can pass the aviable parameters
                     node = self._parse_exp_str(var, exp, assignments, aviable_params)
                     solved.append(node)
                 else:
@@ -1096,7 +1094,7 @@ class HPDLReader:
         timing: typing.Optional[model.Timing] = None,
         assignments: Dict[str, "model.Object"] = {},
         aviable_params: typing.Optional[OrderedDict[str, "model.Type"]] = None,
-    ) -> List[typing.Any]:
+    ) -> List[Tuple[model.FNode, model.FNode, Union[model.FNode, bool], str]]:
         to_add = [(exp, cond)]
         result: List[
             Tuple[model.FNode, model.FNode, Union[model.FNode, bool], str]
@@ -1123,7 +1121,7 @@ class HPDLReader:
                 )
                 result.append(eff)
                 # act.add_effect(*eff if timing is None else (timing, *eff))  # type: ignore
-            elif op == "assign":
+            elif op == "assign" or op == "increase" or op == "decrease":
                 eff = (
                     self._parse_exp({}, exp[1], assignments, aviable_params),
                     self._parse_exp({}, exp[2], assignments, aviable_params),
@@ -1132,24 +1130,6 @@ class HPDLReader:
                 )
                 result.append(eff)
                 # act.add_effect(*eff if timing is None else (timing, *eff))  # type: ignore
-            elif op == "increase":
-                eff = (
-                    self._parse_exp({}, exp[1], assignments, aviable_params),
-                    self._parse_exp({}, exp[2], assignments, aviable_params),
-                    cond,
-                    op,
-                )
-                result.append(eff)
-                # act.add_increase_effect(*eff if timing is None else (timing, *eff))  # type: ignore
-            elif op == "decrease":
-                eff = (
-                    self._parse_exp({}, exp[1], assignments, aviable_params),
-                    self._parse_exp({}, exp[2], assignments, aviable_params),
-                    cond,
-                    op,
-                )
-                result.append(eff)
-                # act.add_decrease_effect(*eff if timing is None else (timing, *eff))  # type: ignore
             elif op == "forall":
                 assert isinstance(exp, ParseResults)
                 # Get the list of universal_assignments linked to this action. If it does not exist, default it to the empty list
@@ -1237,26 +1217,31 @@ class HPDLReader:
         self,
         name: str,
         params: OrderedDict,
-        durative: bool,
-        pre: List[str],
-        eff: List[model.Fluent],
-        duration: typing.Optional[List[str]],
+        durative: bool = False,
+        pre: model.FNode = None,
+        eff: List[Tuple[model.FNode, model.FNode, Union[model.FNode, bool], str]] = [],
+        duration: typing.Optional[List[str]] = None,
     ) -> model.Action:
+
+        # TODO: Check durative actions
         if durative:
             return self._build_durative_action(name, params)
 
         act = model.InstantaneousAction(name, params, self._env)
-        if len(pre):
-            act.add_precondition(
-                self._parse_exp(self.problem, act, self.types_map, {}, pre)
-            )
-        if len(eff):
-            act.add_effect()
-            act.add_increase_effect()
-            act.add_decrease_effect()
-            self._add_effect(
-                self.problem, act, self.types_map, self.universal_assignments, eff
-            )
+        # if len(pre):
+        if pre:
+            act.add_precondition(pre)
+
+        for f in eff:
+            if f[3] == "assign":
+                act.add_effect(f[0], f[1], f[2])
+            elif f[3] == "increase":
+                act.add_increase_effect(f[0], f[1], f[2])
+            elif f[3] == "decrease":
+                act.add_decrease_effect(f[0], f[1], f[2])
+            else:
+                act.add_effect(f[0], f[1], f[2])
+
         # self.problem.add_action(act)
         # Do we need to do it here? it comes from _parse_problem method
         self.has_actions_cost = (
@@ -1271,7 +1256,7 @@ class HPDLReader:
         action_name = action["name"]
         a_params = self._parse_params(action["params"])
         durative = False
-        duration = []
+        duration = None
 
         if "duration" in action:
             durative = True
@@ -1289,14 +1274,6 @@ class HPDLReader:
 
         if "eff" in action:
             res["eff"] = self._parse_effect(action["eff"][0], True, None, {}, a_params)
-            # res["eff"] = self._parse_exp({}, action["eff"][0], {}, a_params)
-        print("res", res)
-
-        raise NotImplementedError("TODO: implement this method")
-        if "eff" in action:
-            self._parse_effect(action["eff"][0], {}, a_params)
-
-        # res["eff"] = self._parse_exp(self.types_map, action["eff"][0], {}, a_params)
 
         return res
 
@@ -1391,7 +1368,18 @@ class HPDLReader:
             self.problem.add_task(task_model)
 
         for a in domain_res.get("actions", []):
-            self._parse_action(a)
+            parsed_action = self._parse_action(a)
+            action_model = self._build_action(
+                parsed_action["name"],
+                parsed_action["params"],
+                parsed_action["durative"],
+                parsed_action["pre"],
+                parsed_action["eff"],
+                parsed_action["duration"],
+            )
+            self.problem.add_action(action_model)
+
+        print("problem", self.problem)
 
         raise NotImplementedError("TODO")
         # self._parse_action(
