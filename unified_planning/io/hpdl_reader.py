@@ -1288,9 +1288,8 @@ class HPDLReader:
             res["pre"] = self._parse_exp({}, action["pre"][0], {}, a_params)
 
         if "eff" in action:
-            res["eff"] = self._parse_effect(action["eff"][0], False, None, {}, a_params)
+            res["eff"] = self._parse_effect(action["eff"][0], True, None, {}, a_params)
             # res["eff"] = self._parse_exp({}, action["eff"][0], {}, a_params)
-
         print("res", res)
 
         raise NotImplementedError("TODO: implement this method")
