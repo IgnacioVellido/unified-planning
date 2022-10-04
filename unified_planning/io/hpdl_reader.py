@@ -1217,9 +1217,9 @@ class HPDLReader:
         self,
         name: str,
         params: OrderedDict,
-        durative: bool = False,
         pre: model.FNode = None,
         eff: List[Tuple[model.FNode, model.FNode, Union[model.FNode, bool], str]] = [],
+        durative: bool = False,
         duration: typing.Optional[List[str]] = None,
     ) -> model.Action:
 
@@ -1372,16 +1372,14 @@ class HPDLReader:
             action_model = self._build_action(
                 parsed_action["name"],
                 parsed_action["params"],
-                parsed_action["durative"],
                 parsed_action["pre"],
                 parsed_action["eff"],
+                parsed_action["durative"],
                 parsed_action["duration"],
             )
             self.problem.add_action(action_model)
 
-        print("problem", self.problem)
-
-        raise NotImplementedError("TODO")
+        # raise NotImplementedError("TODO")
         # self._parse_action(
         #     a,
         #     self.problem,
@@ -1392,127 +1390,129 @@ class HPDLReader:
         # Methods are defined inside tasks;
         # we need to parse them after all tasks and actions have been defined
         # because _parse_subtasks() needs to be able to find them.
-        for task in domain_res.get("tasks", []):
-            for method in task.get("methods", []):
-                # assert isinstance(problem, htn.HierarchicalProblem)
-                method_name = f'{task["name"]}-{method["name"]}'  # Methods names are
-                # not unique across tasks
+        # for task in domain_res.get("tasks", []):
+        #     for method in task.get("methods", []):
+        #         # assert isinstance(problem, htn.HierarchicalProblem)
+        #         method_name = f'{task["name"]}-{method["name"]}'  # Methods names are
+        #         # not unique across tasks
 
-                subtasks = []
-                subtasks_params = OrderedDict()
+        #         subtasks = []
+        #         subtasks_params = OrderedDict()
 
-                for subs in method.get("subtasks", []):
-                    subs = self._parse_subtasks(
-                        subs, None, self.problem, self.types_map
-                    )
-                    for s in subs:
-                        subtasks.append(s)
-                        subtasks_params.append(s.parameters)
-                        # method_model.add_subtask(s)
+        #         for subs in method.get("subtasks", []):
+        #             subs = self._parse_subtasks(
+        #                 subs, None, self.problem, self.types_map
+        #             )
+        #             for s in subs:
+        #                 subtasks.append(s)
+        #                 subtasks_params.append(s.parameters)
+        #                 # method_model.add_subtask(s)
 
-                task_model = self.problem.get_task(task["name"])
-                task_params = OrderedDict(
-                    {p.name: p.type for p in task_model.parameters}
-                )
+        #         task_model = self.problem.get_task(task["name"])
+        #         task_params = OrderedDict(
+        #             {p.name: p.type for p in task_model.parameters}
+        #         )
 
-                method_model = htn.Method(method_name, task_params + subtasks_params)
-                method_model.set_task(task_model)
-                for s in subtasks:
-                    method_model.add_subtask(s)
+        #         method_model = htn.Method(method_name, task_params + subtasks_params)
+        #         method_model.set_task(task_model)
+        #         for s in subtasks:
+        #             method_model.add_subtask(s)
 
-                method_preconditions = method.get("preconditions", [])
-                for pre in method_preconditions:
-                    method_model.add_precondition(pre)
+        #         method_preconditions = method.get("preconditions", [])
+        #         for pre in method_preconditions:
+        #             method_model.add_precondition(pre)
 
-                # for ord_subs in m.get("tasks", []):
-                #     ord_subs = self._parse_subtasks(ord_subs, method, problem, types_map)
-                #     for s in ord_subs:
-                #         method.add_subtask(s)
-                #     method.set_ordered(*ord_subs)
-                self.problem.add_method(method_model)
+        #         # for ord_subs in m.get("tasks", []):
+        #         #     ord_subs = self._parse_subtasks(ord_subs, method, problem, types_map)
+        #         #     for s in ord_subs:
+        #         #         method.add_subtask(s)
+        #         #     method.set_ordered(*ord_subs)
+        #         self.problem.add_method(method_model)
 
         if problem_filename is not None:
             problem_res = self._pp_problem.parseFile(problem_filename)
 
             self.problem.name = problem_res["name"]
 
-            for g in problem_res.get("objects", []):
-                t = self.types_map[g[1] if len(g) > 1 else "object"]
-                for o in g[0]:
-                    self.problem.add_object(model.Object(o, t, self.problem.env))
+            objects = problem_res.get("objects", [])
+            objects = self._parse_params(objects)
 
-            for action, eff_list in self.universal_assignments.items():
-                for eff in eff_list:
-                    # Parse the variable definition part and create 2 lists, the first one with the variable names,
-                    # the second one with the variable types.
-                    vars_string = " ".join(eff[1])
-                    vars_res = self._pp_parameters.parseString(vars_string)
-                    var_names: List[str] = []
-                    var_types: List["model.Type"] = []
-                    for g in vars_res["params"]:
-                        t = self.types_map[g[1] if len(g) > 1 else "object"]
-                        for o in g[0]:
-                            var_names.append(f"?{o}")
-                            var_types.append(t)
-                    # for each variable type, get all the objects of that type and calculate the cartesian
-                    # product between all the given objects and iterate over them, changing the variable assignments
-                    # in the added effect
-                    for objects in product(
-                        *(self.problem.objects(t) for t in var_types)
-                    ):
-                        assert len(var_names) == len(objects)
-                        assignments = {
-                            name: obj for name, obj in zip(var_names, objects)
-                        }
-                        if isinstance(action, model.InstantaneousAction):
-                            self._add_effect(
-                                self.problem,
-                                action,
-                                self.types_map,
-                                None,
-                                eff[2],
-                                assignments=assignments,
-                            )
-                        elif isinstance(action, model.DurativeAction):
-                            self._add_timed_effects(
-                                self.problem,
-                                action,
-                                self.types_map,
-                                None,
-                                eff[2],
-                                assignments=assignments,
-                            )
-                        else:
-                            raise NotImplementedError
+            for var, kind in objects.items():
+                self.problem.add_object(model.Object(var, kind, self.problem.env))
 
-            tasknet = problem_res.get("htn", None)
-            if tasknet is not None:
-                assert isinstance(self.problem, htn.HierarchicalProblem)
-                tasks = self._parse_subtasks(
-                    tasknet["tasks"][0], None, self.problem, self.types_map
-                )
-                for task in tasks:
-                    self.problem.task_network.add_subtask(task)
-                if len(tasknet["ordering"][0]) != 0:
-                    raise SyntaxError(
-                        "Ordering not supported in the initial task network"
-                    )
-                if len(tasknet["constraints"][0]) != 0:
-                    raise SyntaxError(
-                        "Constraints not supported in the initial task network"
-                    )
+            # TODO: Is this needed?
+            # for action, eff_list in self.universal_assignments.items():
+            #     for eff in eff_list:
+            #         # Parse the variable definition part and create 2 lists, the first one with the variable names,
+            #         # the second one with the variable types.
+            #         vars_string = " ".join(eff[1])
+            #         vars_res = self._pp_parameters.parseString(vars_string)
+            #         var_names: List[str] = []
+            #         var_types: List["model.Type"] = []
+            #         for g in vars_res["params"]:
+            #             t = self.types_map[g[1] if len(g) > 1 else "object"]
+            #             for o in g[0]:
+            #                 var_names.append(f"?{o}")
+            #                 var_types.append(t)
+            #         # for each variable type, get all the objects of that type and calculate the cartesian
+            #         # product between all the given objects and iterate over them, changing the variable assignments
+            #         # in the added effect
+            #         for objects in product(
+            #             *(self.problem.objects(t) for t in var_types)
+            #         ):
+            #             assert len(var_names) == len(objects)
+            #             assignments = {
+            #                 name: obj for name, obj in zip(var_names, objects)
+            #             }
+            #             if isinstance(action, model.InstantaneousAction):
+            #                 self._add_effect(
+            #                     self.problem,
+            #                     action,
+            #                     self.types_map,
+            #                     None,
+            #                     eff[2],
+            #                     assignments=assignments,
+            #                 )
+            #             elif isinstance(action, model.DurativeAction):
+            #                 self._add_timed_effects(
+            #                     self.problem,
+            #                     action,
+            #                     self.types_map,
+            #                     None,
+            #                     eff[2],
+            #                     assignments=assignments,
+            #                 )
+            #             else:
+            #                 raise NotImplementedError
+
+            # tasknet = problem_res.get("htn", None)
+            # if tasknet is not None:
+            #     assert isinstance(self.problem, htn.HierarchicalProblem)
+            #     tasks = self._parse_subtasks(
+            #         tasknet["tasks"][0], None, self.problem, self.types_map
+            #     )
+            #     for task in tasks:
+            #         self.problem.task_network.add_subtask(task)
+            #     if len(tasknet["ordering"][0]) != 0:
+            #         raise SyntaxError(
+            #             "Ordering not supported in the initial task network"
+            #         )
+            #     if len(tasknet["constraints"][0]) != 0:
+            #         raise SyntaxError(
+            #             "Constraints not supported in the initial task network"
+            #         )
 
             for i in problem_res.get("init", []):
                 if i[0] == "=":
                     self.problem.set_initial_value(
-                        self._parse_exp(self.problem, None, self.types_map, {}, i[1]),
-                        self._parse_exp(self.problem, None, self.types_map, {}, i[2]),
+                        self._parse_exp({}, i[1]),
+                        self._parse_exp({}, i[2]),
                     )
                 elif (
                     len(i) == 3 and i[0] == "at" and i[1].replace(".", "", 1).isdigit()
                 ):
                     ti = model.StartTiming(Fraction(i[1]))
-                    va = self._parse_exp(self.problem, None, self.types_map, {}, i[2])
+                    va = self._parse_exp({}, i[2])
                     if va.is_fluent_exp():
                         self.problem.add_timed_effect(ti, va, self._em.TRUE())
                     elif va.is_not():
@@ -1523,16 +1523,12 @@ class HPDLReader:
                         raise SyntaxError(f"Not able to handle this TIL {i}")
                 else:
                     self.problem.set_initial_value(
-                        self._parse_exp(self.problem, None, self.types_map, {}, i),
+                        self._parse_exp({}, i),
                         self._em.TRUE(),
                     )
 
             if "goal" in problem_res:
-                self.problem.add_goal(
-                    self._parse_exp(
-                        self.problem, None, self.types_map, {}, problem_res["goal"][0]
-                    )
-                )
+                self.problem.add_goal(self._parse_exp({}, problem_res["goal"][0]))
             elif not isinstance(self.problem, htn.HierarchicalProblem):
                 raise SyntaxError("Missing goal section in problem file.")
 
@@ -1551,9 +1547,7 @@ class HPDLReader:
                 ):
                     self.problem.add_quality_metric(model.metrics.MinimizeMakespan())
                 else:
-                    metric_exp = self._parse_exp(
-                        self.problem, None, self.types_map, {}, metric
-                    )
+                    metric_exp = self._parse_exp({}, metric)
                     if (
                         self.has_actions_cost
                         and optimization == "minimize"
