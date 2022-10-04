@@ -630,106 +630,6 @@ class HPDLReader:
                 )
                 # raise SyntaxError(f"Not able to handle: {eff}")
 
-    def _parse_subtask(
-        self,
-        e,
-        method: typing.Optional[htn.Method],
-        problem: htn.HierarchicalProblem,
-        types_map: Dict[str, model.Type],
-    ) -> typing.Optional[htn.Subtask]:
-        """Returns the Subtask corresponding to the given expression e or
-        None if the expression cannot be interpreted as a subtask."""
-        if len(e) == 0:
-            return None
-        task_name = e[0]
-        task: Union[htn.Task, model.Action]
-        if problem.has_task(task_name):
-            task = problem.get_task(task_name)
-        elif problem.has_action(task_name):
-            task = problem.action(task_name)
-        elif task_name == ":inline":
-            # task = self._parse_inline(e, method, problem)
-            return None
-        else:
-            return None
-        assert isinstance(task, htn.Task) or isinstance(task, model.Action)
-
-        if task_name == ":inline":
-            # TODO: Get the parameters from the subtask
-            return htn.Subtask(
-                task,
-            )
-
-        # Remove types and '-' from the expression
-        e = [part for part in e if part != "-" and part not in self.types_map]
-        parameters = [
-            self._parse_exp(problem, method, types_map, {}, param) for param in e[1:]
-        ]
-        return htn.Subtask(task, *parameters)
-
-    def _parse_inline(
-        self,
-        e,
-        method: typing.Optional[htn.Method],
-        problem: htn.HierarchicalProblem,
-    ) -> List[htn.Subtask]:
-        inline_version = 0
-        # inline_name = (method.name or "") + "_inline"
-        inline_name = "_inline"
-        # raise NotImplementedError("Inline methods are not supported yet.")
-        # Find the first available name for the inline task
-        # TODO: this is not very efficient; improve it
-        while problem.has_action(f"{inline_name}_{inline_version}"):
-            inline_version += 1
-
-        # Let's build an action that corresponds to the inline task
-        # Example dict: a [':action', 'AVATAR_MOVE_UP', ':parameters', [['a'], 'MovingAvatar'], ':precondition', ['and', ['can-move-up', '?a'], ['orientation-up', '?a']], ':effect', ['and', ['decrease', ['coordinate_x', '?a'], '1']]]
-        action = OrderedDict()
-        action["name"] = f"{inline_name}_{inline_version}"
-
-        # action["params"] = [p.name for p in method.parameters]
-
-        # The effect does not start with "and", we need to add it
-        action["eff"] = [["and", e[2]]]
-
-        return self._parse_action(
-            action,
-            problem,
-            self.types_map,
-            self.universal_assignments,
-        )
-
-    def _parse_subtasks(
-        self,
-        e,
-        method: typing.Optional[htn.Method],
-        problem: htn.HierarchicalProblem,
-        types_map: Dict[str, model.Type],
-    ) -> List[htn.Subtask]:
-        """Returns the list of subtasks of the expression"""
-        single_task = self._parse_subtask(e, method, problem, types_map)
-        if single_task is not None:
-            return [single_task]
-
-        elif len(e) == 0:
-            return []
-
-        # In HPDL, we dont have the "and" keyword
-        # elif e[0] == "and":
-        #     return [
-        #         subtask
-        #         for e2 in e[1:]
-        #         for subtask in self._parse_subtasks(e2, method, problem, types_map)
-        #     ]
-        elif len(e) >= 1:
-            return [
-                subtask
-                for e2 in e[1:]
-                for subtask in self._parse_subtasks(e2, method, problem, types_map)
-            ]
-        else:
-            raise SyntaxError(f"Could not parse the subtasks list: {e}")
-
     def _check_if_object_type_is_needed(self, domain_res) -> bool:
         for p in domain_res.get("predicates", []):
             for g in p[1]:
@@ -1148,14 +1048,6 @@ class HPDLReader:
 
         return result
 
-    def _parse_subtask(self, subtask: OrderedDict):
-        pass
-
-    def _build_subtask(
-        self,
-    ) -> htn.Subtask:
-        pass
-
     def _build_durative_action(
         self,
         name: str,
@@ -1270,6 +1162,7 @@ class HPDLReader:
         res["duration"] = duration
 
         if "pre" in action:
+            # print({}, action["pre"][0], {}, a_params)
             res["pre"] = self._parse_exp({}, action["pre"][0], {}, a_params)
 
         if "eff" in action:
@@ -1298,6 +1191,224 @@ class HPDLReader:
         #     self.has_actions_cost and self._instantaneous_action_has_cost(act)
         # )
         # return act
+
+    def _parse_inline(
+        self,
+        e,
+        method: typing.Optional[htn.Method],
+        problem: htn.HierarchicalProblem,
+    ) -> List[htn.Subtask]:
+        inline_version = 0
+        # inline_name = (method.name or "") + "_inline"
+        inline_name = "_inline"
+        # raise NotImplementedError("Inline methods are not supported yet.")
+        # Find the first available name for the inline task
+        # TODO: this is not very efficient; improve it
+        while problem.has_action(f"{inline_name}_{inline_version}"):
+            inline_version += 1
+
+        # Let's build an action that corresponds to the inline task
+        # Example dict: a [':action', 'AVATAR_MOVE_UP', ':parameters', [['a'], 'MovingAvatar'], ':precondition', ['and', ['can-move-up', '?a'], ['orientation-up', '?a']], ':effect', ['and', ['decrease', ['coordinate_x', '?a'], '1']]]
+        action = OrderedDict()
+        action["name"] = f"{inline_name}_{inline_version}"
+
+        # action["params"] = [p.name for p in method.parameters]
+
+        # The effect does not start with "and", we need to add it
+        action["eff"] = [["and", e[2]]]
+
+        return self._parse_action(
+            action,
+            problem,
+            self.types_map,
+            self.universal_assignments,
+        )
+    
+    def _build_task(self, task: OrderedDict) -> htn.Task:
+        task_name = task["name"]
+
+        task_params = self._parse_params(task.get("params", []))
+
+        return htn.Task(task_name, task_params)
+
+    def _parse_method(self, method: OrderedDict):
+        return OrderedDict(), OrderedDict()
+        subtasks = []
+        subtasks_params = OrderedDict()
+
+        for subs in method.get("subtasks", []):
+            # subs = self._parse_subtasks(
+            #     subs, None, self.problem, self.types_map
+            # )
+            subtask_model = self._parse_subtask(subs)
+            subtasks.append(subtask_model)
+            subtasks_params.append(subtask_model.parameters)
+            # for s in subs:
+            #     subtasks.append(s)
+            #     subtasks_params.append(s.parameters)
+        
+        return subtasks, subtasks_params
+
+    # self.problem must have task built
+    def _build_method(
+        self,
+        method: OrderedDict,
+        task_name: str
+    ) -> htn.Method:
+        method_name = f'{task_name}-{method["name"]}'  # Methods names are
+                                                       # not unique across tasks
+
+        task_model = self.problem.get_task(task_name)
+        task_params = OrderedDict(
+            {p.name: p.type for p in task_model.parameters}
+        )
+
+        # Parse and build method subtasks
+        subtasks, subtasks_params = self._parse_method(method)
+
+        # ----------------------------
+        # Build model
+        method_params = OrderedDict(list(task_params.items()) + list(subtasks_params.items()))
+        method_model = htn.Method(method_name, method_params)
+
+        # Add parent task to model
+        method_model.set_task(task_model)
+
+        # Add subtasks to model
+        for s in subtasks:
+            method_model.add_subtask(s)
+
+        # Add precoditions to model
+        method_preconditions = method.get("pre", [])
+        for pre in method_preconditions:
+            print(pre)
+            # parsed_pre = self._parse_exp()
+            method_model.add_precondition(pre)
+
+        # TODO: Set order in model
+        # for ord_subs in m.get("tasks", []):
+        #     ord_subs = self._parse_subtasks(ord_subs, method, problem, types_map)
+        #     for s in ord_subs:
+        #         method.add_subtask(s)
+        #     method.set_ordered(*ord_subs)
+        return method_model
+
+    def _parse_subtask(
+        self,
+        # problem: htn.HierarchicalProblem,
+        subtask: OrderedDict
+    ):
+        print(subtask)
+
+        res = OrderedDict()
+
+        # if len(e) == 0:
+        #     return None
+        task_name = subtask['name']
+        res['name'] = subtask['name']
+        res['params'] = subtask['params'] # params.variables & params.types
+
+        print(f"task_name: {task_name}")
+        
+        task: Union[htn.Task, model.Action]
+        if self.problem.has_task(task_name):
+            task = self.problem.get_task(task_name)
+        elif self.problem.has_action(task_name):
+            task = self.problem.action(task_name)
+        elif task_name == ":inline":
+            # task = self._parse_inline(e, method, problem)
+            return None
+            # TODO: Get the parameters from the subtask
+            return htn.Subtask(
+                task,
+            )
+        else:
+            return None
+        assert isinstance(task, htn.Task) or isinstance(task, model.Action)
+
+        # Remove types and '-' from the expression
+        # e = [part for part in e if part != "-" and part not in self.types_map]
+
+        # Look for parameters defined in the subtask
+        # print("subtask:", {}, subtask, {}, res["params"])
+        # parameters = [
+        #     self._parse_exp({}, subtask, {}, res["params"])
+        # ]
+        # param = OrderedDict()
+        print(res["params"], res["params"]["variables"], res["params"]["types"])
+        return htn.Subtask(task, res["params"])
+
+    def _build_subtask(
+        self,
+    ) -> htn.Subtask:
+        pass
+
+    # def _parse_subtask(
+    #     self,
+    #     e,
+    #     method: typing.Optional[htn.Method],
+    #     problem: htn.HierarchicalProblem,
+    #     types_map: Dict[str, model.Type],
+    # ) -> typing.Optional[htn.Subtask]:
+    #     """Returns the Subtask corresponding to the given expression e or
+    #     None if the expression cannot be interpreted as a subtask."""
+    #     if len(e) == 0:
+    #         return None
+    #     task_name = e[0]
+    #     print(f"task_name: {task_name}")
+    #     task: Union[htn.Task, model.Action]
+    #     if problem.has_task(task_name):
+    #         task = problem.get_task(task_name)
+    #     elif problem.has_action(task_name):
+    #         task = problem.action(task_name)
+    #     elif task_name == ":inline":
+    #         # task = self._parse_inline(e, method, problem)
+    #         return None
+    #         # TODO: Get the parameters from the subtask
+    #         return htn.Subtask(
+    #             task,
+    #         )
+    #     else:
+    #         return None
+    #     assert isinstance(task, htn.Task) or isinstance(task, model.Action)
+
+    #     # Remove types and '-' from the expression
+    #     e = [part for part in e if part != "-" and part not in self.types_map]
+    #     parameters = [
+    #         self._parse_exp(method, types_map, {}, param) for param in e[1:]
+    #     ]
+    #     return htn.Subtask(task, *parameters)
+
+    # def _parse_subtasks(
+    #     self,
+    #     e,
+    #     method: typing.Optional[htn.Method],
+    #     problem: htn.HierarchicalProblem,
+    #     types_map: Dict[str, model.Type],
+    # ) -> List[htn.Subtask]:
+    #     """Returns the list of subtasks of the expression"""
+    #     single_task = self._parse_subtask(e, method, problem, types_map)
+    #     if single_task is not None:
+    #         return [single_task]
+
+    #     elif len(e) == 0:
+    #         return []
+
+    #     # In HPDL, we dont have the "and" keyword
+    #     # elif e[0] == "and":
+    #     #     return [
+    #     #         subtask
+    #     #         for e2 in e[1:]
+    #     #         for subtask in self._parse_subtasks(e2, method, problem, types_map)
+    #     #     ]
+    #     elif len(e) >= 1:
+    #         return [
+    #             subtask
+    #             for e2 in e[1:]
+    #             for subtask in self._parse_subtasks(e2, method, problem, types_map)
+    #         ]
+    #     else:
+    #         raise SyntaxError(f"Could not parse the subtasks list: {e}")
 
     # _________________________________________________________
 
@@ -1379,9 +1490,6 @@ class HPDLReader:
             )
             self.problem.add_action(action_model)
 
-        print("problem", self.problem)
-
-        raise NotImplementedError("TODO")
         # self._parse_action(
         #     a,
         #     self.problem,
@@ -1394,42 +1502,11 @@ class HPDLReader:
         # because _parse_subtasks() needs to be able to find them.
         for task in domain_res.get("tasks", []):
             for method in task.get("methods", []):
-                # assert isinstance(problem, htn.HierarchicalProblem)
-                method_name = f'{task["name"]}-{method["name"]}'  # Methods names are
-                # not unique across tasks
-
-                subtasks = []
-                subtasks_params = OrderedDict()
-
-                for subs in method.get("subtasks", []):
-                    subs = self._parse_subtasks(
-                        subs, None, self.problem, self.types_map
-                    )
-                    for s in subs:
-                        subtasks.append(s)
-                        subtasks_params.append(s.parameters)
-                        # method_model.add_subtask(s)
-
-                task_model = self.problem.get_task(task["name"])
-                task_params = OrderedDict(
-                    {p.name: p.type for p in task_model.parameters}
-                )
-
-                method_model = htn.Method(method_name, task_params + subtasks_params)
-                method_model.set_task(task_model)
-                for s in subtasks:
-                    method_model.add_subtask(s)
-
-                method_preconditions = method.get("preconditions", [])
-                for pre in method_preconditions:
-                    method_model.add_precondition(pre)
-
-                # for ord_subs in m.get("tasks", []):
-                #     ord_subs = self._parse_subtasks(ord_subs, method, problem, types_map)
-                #     for s in ord_subs:
-                #         method.add_subtask(s)
-                #     method.set_ordered(*ord_subs)
+                method_model = self._build_method(method, task['name'])
                 self.problem.add_method(method_model)
+
+        print("problem", self.problem)
+        raise NotImplementedError("TODO")
 
         if problem_filename is not None:
             problem_res = self._pp_problem.parseFile(problem_filename)
