@@ -867,7 +867,6 @@ class HPDLReader:
             OrderedDict[str, "model.Type"]
         ] = None,  # If we are parsing a precondition or effect, we need to know the valid parameters
     ) -> model.FNode:
-        print(f"parse str exp: {exp}")
         if exp[0] == "?" and exp[1:] in var:  # variable in a quantifier expression
             return self._em.VariableExp(var[exp[1:]])
         elif exp in assignments:  # quantified assignment variable
@@ -890,32 +889,6 @@ class HPDLReader:
             else:
                 return self._em.Real(n)
 
-    def _parse_params_and_types(self, params: List[str]) -> List[str]:
-        """Parses a list of parameters and returns a list of the parameters names"""
-        print(f"parse params and types: {params}")
-
-        def parse_type(type: str) -> str:
-            if type in self.types_map:
-                return type
-            else:
-                raise ValueError(f"Type {type} not defined")
-
-        res_params = OrderedDict()
-        # '?o1', '-', 'object', '?o2', '-', 'object'
-        i = 0
-        while i < len(params):
-            if params[i][0] == "?":  # parameter
-                if (
-                    i + 1 < len(params) and params[i + 1] == "-"
-                ):  # type is specified, check it
-                    res_params[params[i][1:]] = parse_type(params[i + 2])
-                    i += 3
-                else:
-                    res_params[params[i][1:]] = "object"
-                    i += 1
-
-        return res_params
-
     def _parse_exp_parse_result(
         self,
         var: Dict[str, model.Variable],
@@ -924,7 +897,6 @@ class HPDLReader:
     ) -> Tuple[
         Union[model.FNode, None], Union[List[Tuple[typing.Any, typing.Any, bool]], None]
     ]:
-        print(f"parse result exp: {exp}")
         if len(exp) == 0:  # empty precodition
             return self._em.TRUE(), None
         elif exp[0] == "-" and len(exp) == 2:  # unary minus
@@ -945,9 +917,11 @@ class HPDLReader:
             return None, [(vars, exp, True), (vars, exp[2], False)]
         elif self.problem.has_fluent(exp[0]):  # fluent reference
             res = [(var, exp, True)]
-            params = self._parse_params_and_types(exp[1:])
-            for e in params.keys():
-                res.append((var, f"?{e}", False))
+            for e in exp[1:]:
+                # If type is received, exp declares an
+                # object and is processed in build_method
+                if e != "-" and not self.problem.has_type(e):
+                    res.append((var, e, False))
             return None, res
         elif exp[0] in assignments:  # quantified assignment variable
             assert len(exp) == 1
@@ -983,7 +957,8 @@ class HPDLReader:
                     solved.append(q_op(solved.pop(), *var.values()))
                 elif self.problem.has_fluent(exp[0]):  # fluent reference
                     f = self.problem.fluent(exp[0])
-                    args = [solved.pop() for _ in exp[1:]]
+                    # In object is declared in the exp do not pop for the (- object)
+                    args = [solved.pop() for e in exp[1:] if e != "-" and not self.problem.has_type(e)]
                     solved.append(self._em.FluentExp(f, tuple(args)))
                 elif exp[0] in assignments:  # quantified assignment variable
                     assert len(exp) == 1
@@ -1273,27 +1248,90 @@ class HPDLReader:
 
         return subtasks, subtasks_params
 
+    # --------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
+
+    def _get_params_in_exp(self, exp) -> OrderedDict:
+        """Returns params found in exp"""
+        params = OrderedDict()
+
+        # TODO: Les gusta los stacks, hacerlo en stack
+        # If we went to far, return None
+        if isinstance(exp, str) or len(exp) < 2:
+            pass
+        else:
+            # Check if all elements are strings
+            if all(isinstance(x, str) for x in exp):
+                params.update(self._parse_params_and_types(exp[1:]))
+
+            else:
+                # Find params in each sub expression
+                for e in exp:
+                    params.update(self._get_params_in_exp(e))
+
+
+        return params
+
+    def _parse_params_and_types(self, params: List[str]) -> List[str]:
+        """Parses a list of parameters and returns a list of the parameters names"""
+
+        def parse_type(type: str):
+            if type in self.types_map:
+                return self.types_map[type] # Must return the object, no the str
+            else:
+                raise ValueError(f"Type {type} not defined")
+
+        res_params = OrderedDict()
+        # TODO: Can also be defined as ?o1 ?o2 - object
+        # '?o1', '-', 'object', '?o2', '-', 'object'
+        i = 0
+        while i < len(params):
+            if params[i][0] == "?":  # parameter
+                if (
+                    i + 1 < len(params) and params[i + 1] == "-"
+                ):  # type is specified, check it
+                    res_params[params[i][1:]] = parse_type(params[i + 2])
+                    i += 3
+                else:
+                    res_params[params[i][1:]] = self.types_map["object"]
+                    i += 1
+
+        return res_params
+
+    # --------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
+
     # self.problem must have task built
     def _build_method(self, method: OrderedDict, task_name: str) -> htn.Method:
         method_name = f'{task_name}-{method["name"]}'  # Methods names are
         # not unique across tasks
 
         print("\n\nPARSING method " + method_name)
+        method_params = OrderedDict()
 
+        # Get parent task params
         task_model = self.problem.get_task(task_name)
         task_params = OrderedDict({p.name: p.type for p in task_model.parameters})
+        method_params.update(task_params)
 
         # Parse and build method subtasks
         subtasks, params = self._parse_method(method)  # , task_params)
 
-        # Get params as OrderedDict
-        method_params = OrderedDict({p.name: p.type for p in params})
+        # Get subtasks params as OrderedDict
+        subtask_params = OrderedDict({p.name: p.type for p in params})
+        method_params.update(subtask_params)
+
+        # Get precondition params
+        # TODO: types are not the correct ones (they are always object)
+        method_preconditions = method.get("pre", [])
+        for pre in method_preconditions:
+            pre_params = self._get_params_in_exp(pre)
+            method_params.update(pre_params)
 
         # ----------------------------
         # Build model
-        method_params.update(task_params)
-        print("method params", method_params)
-
         method_model = htn.Method(method_name, method_params)
 
         # Add parent task to model
@@ -1303,16 +1341,10 @@ class HPDLReader:
         for s in subtasks:
             method_model.add_subtask(s)
 
-        # TODO: Add precoditions to model
-        method_preconditions = method.get("pre", [])
-        for pre in method_preconditions:
-            print("precondition", pre)
-            print("method params", method_params)
-            # test = [part for part in pre if part != "-" and part not in self.types_map]
-            # print("TEST", test)
 
+        # Add preconditions to model
+        for pre in method_preconditions:
             parsed_pre = self._parse_exp({}, pre, {}, method_params)
-            # res["pre"] = self._parse_exp({}, action["pre"][0], {}, a_params)
             method_model.add_precondition(parsed_pre)
 
         # TODO: Set order in model
@@ -1321,6 +1353,8 @@ class HPDLReader:
         #     for s in ord_subs:
         #         method.add_subtask(s)
         #     method.set_ordered(*ord_subs)
+
+        # print(method_model)
         return method_model
 
     def _parse_subtask(
