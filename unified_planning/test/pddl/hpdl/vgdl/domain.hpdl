@@ -93,7 +93,7 @@
 				:precondition (
 								)
 				:tasks ( 
-							(turn_avatar ?a)
+							(turn_avatar ?a - MovingAvatar)
 							(turn_objects)
 							(check-interactions)
 							(create-interactions)
@@ -174,7 +174,7 @@
 				:precondition (
 								)
 				:tasks ( 
-							(AVATAR_NIL ?a) 
+							(AVATAR_NIL ?a  - MovingAvatar) 
 						)
 		)
 	)

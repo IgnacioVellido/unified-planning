@@ -867,7 +867,7 @@ class HPDLReader:
             OrderedDict[str, "model.Type"]
         ] = None,  # If we are parsing a precondition or effect, we need to know the valid parameters
     ) -> model.FNode:
-        print(exp)
+        print(f"parse str exp: {exp}")
         if exp[0] == "?" and exp[1:] in var:  # variable in a quantifier expression
             return self._em.VariableExp(var[exp[1:]])
         elif exp in assignments:  # quantified assignment variable
@@ -890,6 +890,32 @@ class HPDLReader:
             else:
                 return self._em.Real(n)
 
+    def _parse_params_and_types(self, params: List[str]) -> List[str]:
+        """Parses a list of parameters and returns a list of the parameters names"""
+        print(f"parse params and types: {params}")
+
+        def parse_type(type: str) -> str:
+            if type in self.types_map:
+                return type
+            else:
+                raise ValueError(f"Type {type} not defined")
+
+        res_params = OrderedDict()
+        # '?o1', '-', 'object', '?o2', '-', 'object'
+        i = 0
+        while i < len(params):
+            if params[i][0] == "?":  # parameter
+                if (
+                    i + 1 < len(params) and params[i + 1] == "-"
+                ):  # type is specified, check it
+                    res_params[params[i][1:]] = parse_type(params[i + 2])
+                    i += 3
+                else:
+                    res_params[params[i][1:]] = "object"
+                    i += 1
+
+        return res_params
+
     def _parse_exp_parse_result(
         self,
         var: Dict[str, model.Variable],
@@ -898,6 +924,7 @@ class HPDLReader:
     ) -> Tuple[
         Union[model.FNode, None], Union[List[Tuple[typing.Any, typing.Any, bool]], None]
     ]:
+        print(f"parse result exp: {exp}")
         if len(exp) == 0:  # empty precodition
             return self._em.TRUE(), None
         elif exp[0] == "-" and len(exp) == 2:  # unary minus
@@ -918,8 +945,9 @@ class HPDLReader:
             return None, [(vars, exp, True), (vars, exp[2], False)]
         elif self.problem.has_fluent(exp[0]):  # fluent reference
             res = [(var, exp, True)]
-            for e in exp[1:]:
-                res.append((var, e, False))
+            params = self._parse_params_and_types(exp[1:])
+            for e in params.keys():
+                res.append((var, f"?{e}", False))
             return None, res
         elif exp[0] in assignments:  # quantified assignment variable
             assert len(exp) == 1
@@ -1216,7 +1244,7 @@ class HPDLReader:
             self.types_map,
             self.universal_assignments,
         )
-    
+
     def _build_task(self, task: OrderedDict) -> htn.Task:
         task_name = task["name"]
 
@@ -1236,38 +1264,30 @@ class HPDLReader:
             subtask_model = self._parse_subtask(subs)
             if subtask_model is not None:
                 subtasks.append(subtask_model)
-                
+
                 # Get model.Parameter for each param
                 for p in subtask_model.parameters:
                     subtasks_params.append(p.parameter())
 
         # TODO: Parse preconditions
-        
+
         return subtasks, subtasks_params
 
     # self.problem must have task built
-    def _build_method(
-        self,
-        method: OrderedDict,
-        task_name: str
-    ) -> htn.Method:
+    def _build_method(self, method: OrderedDict, task_name: str) -> htn.Method:
         method_name = f'{task_name}-{method["name"]}'  # Methods names are
-                                                       # not unique across tasks
+        # not unique across tasks
 
         print("\n\nPARSING method " + method_name)
 
         task_model = self.problem.get_task(task_name)
-        task_params = OrderedDict(
-            {p.name: p.type for p in task_model.parameters}
-        )
+        task_params = OrderedDict({p.name: p.type for p in task_model.parameters})
 
         # Parse and build method subtasks
-        subtasks, params = self._parse_method(method) #, task_params)
+        subtasks, params = self._parse_method(method)  # , task_params)
 
         # Get params as OrderedDict
-        method_params = OrderedDict(
-            {p.name: p.type for p in params}
-        )
+        method_params = OrderedDict({p.name: p.type for p in params})
 
         # ----------------------------
         # Build model
@@ -1309,7 +1329,7 @@ class HPDLReader:
     ):
         print("\nsubtask", subtask)
 
-        if "cond" in subtask.keys(): # == inline
+        if "cond" in subtask.keys():  # == inline
             return None
             # TODO: Get the parameters from the subtask
             # task = self._parse_inline(e, method, problem)
@@ -1317,10 +1337,10 @@ class HPDLReader:
                 task,
             )
 
-        task_name = subtask['name']
+        task_name = subtask["name"]
 
         print(f"task_name: {task_name}")
-        
+
         task: Union[htn.Task, model.Action]
         if self.problem.has_task(task_name):
             task = self.problem.get_task(task_name)
@@ -1329,23 +1349,21 @@ class HPDLReader:
         else:
             return None
         assert isinstance(task, htn.Task) or isinstance(task, model.Action)
-    
 
         # TODO
         # 1: Sacar parámetros de la subtarea en formato OrderedDict
         params_ordict = self._parse_params(subtask["params"])
-        print("subtask params",  params_ordict)
+        print("subtask params", params_ordict)
 
         # 1.5?: Juntarlos con los de la tarea?
-        task_params = OrderedDict(
-            {p.name: p.type for p in task.parameters}
-        )
+        task_params = OrderedDict({p.name: p.type for p in task.parameters})
         print("task params", task_params)
 
         # 2: Ponerle ? a cada param en subtask
         # 3: Llamar a parse_exp con cada uno
         parameters = [
-            self._parse_exp({}, "?" + str(param), {}, task_params) for param in params_ordict
+            self._parse_exp({}, "?" + str(param), {}, task_params)
+            for param in params_ordict
             # self._parse_exp({}, "?" + str(param), {}, params_ordict) for param in params_ordict
         ]
 
@@ -1451,7 +1469,7 @@ class HPDLReader:
         # because _parse_subtasks() needs to be able to find them.
         for task in domain_res.get("tasks", []):
             for method in task.get("methods", []):
-                method_model = self._build_method(method, task['name'])
+                method_model = self._build_method(method, task["name"])
                 self.problem.add_method(method_model)
 
         print("problem", self.problem)
