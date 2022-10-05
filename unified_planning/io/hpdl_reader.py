@@ -1256,8 +1256,8 @@ class HPDLReader:
         """Returns params found in exp"""
         params = OrderedDict()
 
-        # TODO: Les gusta los stacks, hacerlo en stack
-        # If we went to far, return None
+        # TODO: Doing as a stack instead
+        # If we went to far, return empty
         if isinstance(exp, str) or len(exp) < 2:
             pass
         else:
@@ -1278,7 +1278,7 @@ class HPDLReader:
 
         def parse_type(type: str):
             if type in self.types_map:
-                return self.types_map[type] # Must return the object, no the str
+                return self.types_map[type] # Must return the object, not the str
             else:
                 raise ValueError(f"Type {type} not defined")
 
@@ -1293,8 +1293,7 @@ class HPDLReader:
                 ):  # type is specified, check it
                     res_params[params[i][1:]] = parse_type(params[i + 2])
                     i += 3
-                else:
-                    res_params[params[i][1:]] = self.types_map["object"]
+                else:   # Ignore it
                     i += 1
 
         return res_params
@@ -1341,7 +1340,6 @@ class HPDLReader:
         for s in subtasks:
             method_model.add_subtask(s)
 
-
         # Add preconditions to model
         for pre in method_preconditions:
             parsed_pre = self._parse_exp({}, pre, {}, method_params)
@@ -1354,7 +1352,7 @@ class HPDLReader:
         #         method.add_subtask(s)
         #     method.set_ordered(*ord_subs)
 
-        # print(method_model)
+        print(method_model)
         return method_model
 
     def _parse_subtask(
