@@ -79,7 +79,7 @@
 	; Tasks ---------------------------------------------------------------------
   
 	(:task Turn
-		:parameters ( ?a - MovingAvatar )
+		:parameters ( ?a - MovingAvatar)
 
 		(:method finish_game
 				:precondition (and 
@@ -93,13 +93,12 @@
 				:precondition (
 								)
 				:tasks ( 
-							; (turn_avatar ?a - MovingAvatar)
 							(turn_avatar ?a)
 							(turn_objects)
 							(check-interactions)
 							(create-interactions)
 							(:inline () (increase (turn) 1))
-							(Turn)
+							(Turn ?a)
 						)
 		)
 	)
