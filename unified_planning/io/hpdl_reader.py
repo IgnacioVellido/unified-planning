@@ -62,26 +62,6 @@ class HPDLGrammar:
             + Suppress(")")
         )
 
-        # List of predicates
-        and_predicate = (
-            Suppress("(")
-            + "and"
-            + Group(OneOrMore(predicate))  # | operation))
-            + Suppress(")")
-        )
-
-        operator = one_of(
-            "and or not imply >= <= > < = + - / * increase decrease         assign scale-up scale-down"
-        ).setResultsName("operator")
-
-        operation = Group(
-            Suppress("(")
-            + operator
-            + (number | predicate).setResultsName("operand1")
-            + (number | predicate).setResultsName("operand2")
-            + Suppress(")")
-        )
-
         # ----------------------------------------------------------
         # Sections
         sec_requirements = (
@@ -185,15 +165,8 @@ class HPDLGrammar:
         inline_def = Group(
             Suppress("(")
             + ":inline"
-            # + (predicate | and_predicate | operation | nestedExpr()).setResultsName
-            # (
-            #     "cond"
-            # )
             + nestedExpr().setResultsName("cond")
             + nestedExpr().setResultsName("eff")
-            # + (predicate | and_predicate | operation | nestedExpr()).setResultsName(
-            #     "eff"
-            # )
             + Suppress(")")
         ).setResultsName("inline")
 
