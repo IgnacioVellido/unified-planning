@@ -185,12 +185,15 @@ class HPDLGrammar:
         inline_def = Group(
             Suppress("(")
             + ":inline"
-            + (predicate | and_predicate | operation | nestedExpr()).setResultsName(
-                "cond"
-            )
-            + (predicate | and_predicate | operation | nestedExpr()).setResultsName(
-                "eff"
-            )
+            # + (predicate | and_predicate | operation | nestedExpr()).setResultsName
+            # (
+            #     "cond"
+            # )
+            + nestedExpr().setResultsName("cond")
+            + nestedExpr().setResultsName("eff")
+            # + (predicate | and_predicate | operation | nestedExpr()).setResultsName(
+            #     "eff"
+            # )
             + Suppress(")")
         ).setResultsName("inline")
 
@@ -1190,35 +1193,60 @@ class HPDLReader:
 
     def _parse_inline(
         self,
-        e,
-        method: typing.Optional[htn.Method],
-        problem: htn.HierarchicalProblem,
-    ) -> List[htn.Subtask]:
+        inline,
+        # method_name: str,
+        method_params: OrderedDict # Task and pre params of method
+    ) -> model.Action:
         inline_version = 0
-        # inline_name = (method.name or "") + "_inline"
-        inline_name = "_inline"
-        # raise NotImplementedError("Inline methods are not supported yet.")
+        # inline_name = (method_name or "") + "_inline"
+        inline_name = "inline"
+
         # Find the first available name for the inline task
         # TODO: this is not very efficient; improve it
-        while problem.has_action(f"{inline_name}_{inline_version}"):
+        while self.problem.has_action(f"{inline_name}_{inline_version}"):
             inline_version += 1
 
-        # Let's build an action that corresponds to the inline task
-        # Example dict: a [':action', 'AVATAR_MOVE_UP', ':parameters', [['a'], 'MovingAvatar'], ':precondition', ['and', ['can-move-up', '?a'], ['orientation-up', '?a']], ':effect', ['and', ['decrease', ['coordinate_x', '?a'], '1']]]
-        action = OrderedDict()
-        action["name"] = f"{inline_name}_{inline_version}"
+        res = OrderedDict()
 
-        # action["params"] = [p.name for p in method.parameters]
+        res["name"] = f"{inline_name}_{inline_version}"
+        res["durative"] = False
+        res["duration"] = []
 
-        # The effect does not start with "and", we need to add it
-        action["eff"] = [["and", e[2]]]
+        # Check for params declared in inline
+        cond_params = self._get_params_in_exp(inline["cond"][0])
+        eff_params = self._get_params_in_exp(inline["eff"][0])
 
-        return self._parse_action(
-            action,
-            problem,
-            self.types_map,
-            self.universal_assignments,
+        # Join with method_params
+        # TODO: A param could have been defined in some subtask, and method_params
+        # is not updated (should be updated in parse_metods)
+        res["params"] = method_params
+        res["params"].update(cond_params)
+        res["params"].update(eff_params)
+
+        # Parse conditions and effects
+        if "cond" in inline:
+            res["cond"] = self._parse_exp({}, inline["cond"][0], {}, res["params"])
+
+        if "eff" in inline:
+            res["eff"] = self._parse_effect(inline["eff"][0], True, None, {}, res["params"])
+
+
+        # Build action
+        action_model = self._build_action(
+            res["name"],
+            res["params"],
+            res["cond"],
+            res["eff"],
+            res["durative"],
+            res["duration"],
         )
+        
+        # Add inline to the problem
+        # TODO: New class Inline?
+        self.problem.add_action(action_model)
+
+        # Return subtask
+        return htn.Subtask(action_model, *action_model.parameters)
 
     def _build_task(self, task: OrderedDict) -> htn.Task:
         task_name = task["name"]
@@ -1230,21 +1258,21 @@ class HPDLReader:
     def _parse_method(
         self,
         method: OrderedDict,
+        method_params: OrderedDict # Task and pre params of method
     ):
         # Parse subtasks
         subtasks = []
         subtasks_params = []
 
         for subs in method.get("subtasks", []):
-            subtask_model = self._parse_subtask(subs)
+            subtask_model = self._parse_subtask(subs, method_params)
             if subtask_model is not None:
                 subtasks.append(subtask_model)
 
                 # Get model.Parameter for each param
+                # TODO: See parse_inline params TODO
                 for p in subtask_model.parameters:
                     subtasks_params.append(p.parameter())
-
-        # TODO: Parse preconditions
 
         return subtasks, subtasks_params
 
@@ -1307,7 +1335,7 @@ class HPDLReader:
         method_name = f'{task_name}-{method["name"]}'  # Methods names are
         # not unique across tasks
 
-        print("\n\nPARSING method " + method_name)
+        # print("\n\nPARSING method " + method_name)
         method_params = OrderedDict()
 
         # Get parent task params
@@ -1315,19 +1343,18 @@ class HPDLReader:
         task_params = OrderedDict({p.name: p.type for p in task_model.parameters})
         method_params.update(task_params)
 
-        # Parse and build method subtasks
-        subtasks, params = self._parse_method(method)  # , task_params)
-
-        # Get subtasks params as OrderedDict
-        subtask_params = OrderedDict({p.name: p.type for p in params})
-        method_params.update(subtask_params)
-
         # Get precondition params
-        # TODO: types are not the correct ones (they are always object)
         method_preconditions = method.get("pre", [])
         for pre in method_preconditions:
             pre_params = self._get_params_in_exp(pre)
             method_params.update(pre_params)
+
+        # Parse and build method subtasks
+        subtasks, params = self._parse_method(method, method_params)
+
+        # Get subtasks params as OrderedDict
+        subtask_params = OrderedDict({p.name: p.type for p in params})
+        method_params.update(subtask_params)
 
         # ----------------------------
         # Build model
@@ -1352,26 +1379,18 @@ class HPDLReader:
         #         method.add_subtask(s)
         #     method.set_ordered(*ord_subs)
 
-        print(method_model)
+        # print(method_model)
         return method_model
 
     def _parse_subtask(
         self,
         subtask: OrderedDict,
+        method_params: OrderedDict # Task and pre params of method
     ):
-        print("\nsubtask", subtask)
-
         if "cond" in subtask.keys():  # == inline
-            return None
-            # TODO: Get the parameters from the subtask
-            # task = self._parse_inline(e, method, problem)
-            return htn.Subtask(
-                task,
-            )
+            return self._parse_inline(subtask, method_params)
 
         task_name = subtask["name"]
-
-        print(f"task_name: {task_name}")
 
         task: Union[htn.Task, model.Action]
         if self.problem.has_task(task_name):
@@ -1382,32 +1401,24 @@ class HPDLReader:
             return None
         assert isinstance(task, htn.Task) or isinstance(task, model.Action)
 
-        # TODO
-        # 1: Sacar parámetros de la subtarea en formato OrderedDict
+        # TODO: Some param could have been defined in another subtask, check that
+        # doesn't brings up an error
+        # 1: Find subtask params
         params_ordict = self._parse_params(subtask["params"])
-        print("subtask params", params_ordict)
+        # print("subtask params", params_ordict)
 
-        # 1.5?: Juntarlos con los de la tarea?
+        # 2: Find params of action/task invoked
         task_params = OrderedDict({p.name: p.type for p in task.parameters})
-        print("task params", task_params)
+        # print("task params", task_params)
 
-        # 2: Ponerle ? a cada param en subtask
-        # 3: Llamar a parse_exp con cada uno
+        # 3: Parse exp adding ? to each variable (somehow without ? it fails)
         parameters = [
             self._parse_exp({}, "?" + str(param), {}, task_params)
             for param in params_ordict
-            # self._parse_exp({}, "?" + str(param), {}, params_ordict) for param in params_ordict
         ]
 
-        # 4: Coger parámetros y crear Subtask
-        print("OUT", parameters)
-
+        # Create and return Subtask
         return htn.Subtask(task, *parameters)
-
-    def _build_subtask(
-        self,
-    ) -> htn.Subtask:
-        pass
 
     # _________________________________________________________
 
