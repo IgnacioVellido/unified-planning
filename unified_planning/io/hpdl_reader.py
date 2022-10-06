@@ -1221,35 +1221,6 @@ class HPDLReader:
         # Return subtask
         return htn.Subtask(action_model, *action_model.parameters)
 
-    def _build_task(self, task: OrderedDict) -> htn.Task:
-        task_name = task["name"]
-
-        task_params = self._parse_params(task.get("params", []))
-
-        return htn.Task(task_name, task_params)
-
-    def _parse_method(
-        self,
-        method: OrderedDict,
-        method_params: OrderedDict # Task and pre params of method
-    ):
-        # Parse subtasks
-        subtasks = []
-        subtasks_params = []
-
-        for subs in method.get("subtasks", []):
-            subtask_model = self._parse_subtask(subs, method_params)
-            if subtask_model is not None:
-                subtasks.append(subtask_model)
-
-                # Get model.Parameter for each param
-                # TODO: See parse_inline params TODO
-                for p in subtask_model.parameters:
-                    subtasks_params.append(p.parameter())
-
-        return subtasks, subtasks_params
-
-    # --------------------------------------------------------------------------
     # --------------------------------------------------------------------------
     # --------------------------------------------------------------------------
 
@@ -1301,7 +1272,34 @@ class HPDLReader:
 
     # --------------------------------------------------------------------------
     # --------------------------------------------------------------------------
-    # --------------------------------------------------------------------------
+
+    def _build_task(self, task: OrderedDict) -> htn.Task:
+        task_name = task["name"]
+
+        task_params = self._parse_params(task.get("params", []))
+
+        return htn.Task(task_name, task_params)
+
+    def _parse_method(
+        self,
+        method: OrderedDict,
+        method_params: OrderedDict # Task and pre params of method
+    ):
+        # Parse subtasks
+        subtasks = []
+        subtasks_params = []
+
+        for subs in method.get("subtasks", []):
+            subtask_model = self._parse_subtask(subs, method_params)
+            if subtask_model is not None:
+                subtasks.append(subtask_model)
+
+                # Get model.Parameter for each param
+                # TODO: See parse_inline params TODO
+                for p in subtask_model.parameters:
+                    subtasks_params.append(p.parameter())
+
+        return subtasks, subtasks_params
 
     # self.problem must have task built
     def _build_method(self, method: OrderedDict, task_name: str) -> htn.Method:
