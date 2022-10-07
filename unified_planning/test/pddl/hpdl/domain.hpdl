@@ -118,34 +118,34 @@
     )
     
     
-    ; (:method Case2 ; si no está at la ciudad destino, pero avion y persona están at la misma ciudad
-    ;   :precondition (and  (at ?p - person ?c1 - city)
-    ;                       (at ?a - aircraft ?c1 - city)
-    ;                 )
+    (:method Case2 ; si no está at la ciudad destino, pero avion y persona están at la misma ciudad
+      :precondition (and  (at ?p - person ?c1 - city)
+                          (at ?a - aircraft ?c1 - city)
+                    )
               
-    ;   :tasks ( 
-    ;           (embarcar-pasajeros ?a ?c1 ?c)              
-    ;           (mover-avion ?a ?c1 ?c)
-    ;           (desembarcar-pasajeros ?a ?c)
-    ;         )
-    ; )
+      :tasks ( 
+              (embarcar-pasajeros ?a ?c1 ?c)              
+              (mover-avion ?a ?c1 ?c)
+              (desembarcar-pasajeros ?a ?c)
+            )
+    )
 
-    ; (:method Case3 ; Si el avión no está at la misma ciudad, traerlo primero
-    ;   :precondition (and 
-    ;                       (at ?p - person ?c1 - city)
-    ;                       (at ?a - aircraft ?c2 - city)
-    ;                       (not (= ?c1 ?c2))
-    ;                 )
-    ;   :tasks (
-    ;             (embarcar-pasajeros ?a ?c2 ?c1)                
-    ;             (mover-avion ?a ?c2 ?c1)                
-    ;             (desembarcar-pasajeros ?a ?c1)
+    (:method Case3 ; Si el avión no está at la misma ciudad, traerlo primero
+      :precondition (and 
+                          (at ?p - person ?c1 - city)
+                          (at ?a - aircraft ?c2 - city)
+                          (not (= ?c1 ?c2))
+                    )
+      :tasks (
+                (embarcar-pasajeros ?a ?c2 ?c1)                
+                (mover-avion ?a ?c2 ?c1)                
+                (desembarcar-pasajeros ?a ?c1)
                 
-    ;             (embarcar-pasajeros ?a ?c1 ?c)
-    ;             (mover-avion ?a ?c1 ?c)
-    ;             (desembarcar-pasajeros ?a ?c)
-    ;         )
-    ; )
+                (embarcar-pasajeros ?a ?c1 ?c)
+                (mover-avion ?a ?c1 ?c)
+                (desembarcar-pasajeros ?a ?c)
+            )
+    )
   )
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -330,8 +330,7 @@
 )
 
 (:durative-action fly 
-;  :parameters (?a - aircraft ?c1 ?c2 - city)
-:parameters (?a - aircraft ?c1 - city ?c2 - city)
+ :parameters (?a - aircraft ?c1 ?c2 - city)
  :duration (= ?duration (/ (distance ?c1 ?c2) (slow-speed ?a)))
  :condition (and  (at ?a ?c1)
                   (>= (fuel ?a) 
@@ -344,14 +343,13 @@
                          (* (distance ?c1 ?c2) (slow-burn ?a)))))
                                   
 (:durative-action zoom
-;  :parameters (?a - aircraft ?c1 ?c2 - city)
- :parameters (?a - aircraft ?c1 - city ?c2 - city)
+ :parameters (?a - aircraft ?c1 ?c2 - city)
  :duration (= ?duration (/ (distance ?c1 ?c2) (fast-speed ?a)))
  :condition (and  (at ?a ?c1)
                   (>= (fuel ?a) 
                          (* (distance ?c1 ?c2) (fast-burn ?a))))
  :effect (and (not (at ?a ?c1))
-               (at ?a ?c2)
+               (forall (?p - person) (at ?p ?c2))
                (increase (total-fuel-used)
                          (* (distance ?c1 ?c2) (fast-burn ?a)))
               (decrease (fuel ?a) 
