@@ -145,7 +145,7 @@ class HPDLGrammar:
             + ":duration"
             + nestedExpr().setResultsName("duration")
             + ":condition"
-            + nestedExpr().setResultsName("cond")
+            + nestedExpr().setResultsName("pre") # CHANGED: PDDLReader uses "cond"
             + ":effect"
             + nestedExpr().setResultsName("eff")
             + Suppress(")")
@@ -333,96 +333,10 @@ class HPDLReader:
         self.universal_assignments: Dict["model.Action", List[ParseResults]] = {}
         self.has_actions_cost: bool = False
 
-    # def _parse_exp(
-    #     self,
-    #     problem: model.Problem,
-    #     act: typing.Optional[Union[model.Action, htn.Method]],
-    #     types_map: Dict[str, model.Type],
-    #     var: Dict[str, model.Variable],
-    #     exp: Union[ParseResults, str],
-    #     assignments: Dict[str, "model.Object"] = {},
-    # ) -> model.FNode:
-    #     stack = [(var, exp, False)]
-    #     solved: List[model.FNode] = []
-    #     while len(stack) > 0:
-    #         var, exp, status = stack.pop()
-    #         if status:
-    #             if exp[0] == "-" and len(exp) == 2:  # unary minus
-    #                 solved.append(self._em.Times(-1, solved.pop()))
-    #             elif exp[0] in self._operators:  # n-ary operators
-    #                 op: Callable = self._operators[exp[0]]
-    #                 solved.append(op(*[solved.pop() for _ in exp[1:]]))
-    #             elif exp[0] in ["exists", "forall"]:  # quantifier operators
-    #                 q_op: Callable = (
-    #                     self._em.Exists if exp[0] == "exists" else self._em.Forall
-    #                 )
-    #                 solved.append(q_op(solved.pop(), *var.values()))
-    #             elif problem.has_fluent(exp[0]):  # fluent reference
-    #                 f = problem.fluent(exp[0])
-    #                 args = [solved.pop() for _ in exp[1:]]
-    #                 solved.append(self._em.FluentExp(f, tuple(args)))
-    #             elif exp[0] in assignments:  # quantified assignment variable
-    #                 assert len(exp) == 1
-    #                 solved.append(self._em.ObjectExp(assignments[exp[0]]))
-    #             else:
-    #                 raise up.exceptions.UPUnreachableCodeError
-    #         else:
-    #             if isinstance(exp, ParseResults):
-    #                 if len(exp) == 0:  # empty precodition
-    #                     solved.append(self._em.TRUE())
-    #                 elif exp[0] == "-" and len(exp) == 2:  # unary minus
-    #                     stack.append((var, exp, True))
-    #                     stack.append((var, exp[1], False))
-    #                 elif exp[0] in self._operators:  # n-ary operators
-    #                     stack.append((var, exp, True))
-    #                     for e in exp[1:]:
-    #                         stack.append((var, e, False))
-    #                 elif exp[0] in ["exists", "forall"]:  # quantifier operators
-    #                     vars_string = " ".join(exp[1])
-    #                     vars_res = self._pp_parameters.parseString(vars_string)
-    #                     vars = {}
-    #                     for g in vars_res["params"]:
-    #                         t = types_map[g[1] if len(g) > 1 else "object"]
-    #                         for o in g[0]:
-    #                             vars[o] = model.Variable(o, t, self._env)
-    #                     stack.append((vars, exp, True))
-    #                     stack.append((vars, exp[2], False))
-    #                 elif problem.has_fluent(exp[0]):  # fluent reference
-    #                     stack.append((var, exp, True))
-    #                     for e in exp[1:]:
-    #                         stack.append((var, e, False))
-    #                 elif exp[0] in assignments:  # quantified assignment variable
-    #                     assert len(exp) == 1
-    #                     stack.append((var, exp, True))
-    #                 elif len(exp) == 1:  # expand an element inside brackets
-    #                     stack.append((var, exp[0], False))
-    #                 else:
-    #                     raise SyntaxError(f"Not able to handle: {exp}")
-    #             elif isinstance(exp, str):
-    #                 if (
-    #                     exp[0] == "?" and exp[1:] in var
-    #                 ):  # variable in a quantifier expression
-    #                     solved.append(self._em.VariableExp(var[exp[1:]]))
-    #                 elif exp in assignments:  # quantified assignment variable
-    #                     solved.append(self._em.ObjectExp(assignments[exp]))
-    #                 elif exp[0] == "?":  # action parameter
-    #                     assert act is not None
-    #                     solved.append(self._em.ParameterExp(act.parameter(exp[1:])))
-    #                 elif problem.has_fluent(exp):  # fluent
-    #                     solved.append(self._em.FluentExp(problem.fluent(exp)))
-    #                 elif problem.has_object(exp):  # object
-    #                     solved.append(self._em.ObjectExp(problem.object(exp)))
-    #                 else:  # number
-    #                     n = Fraction(exp)
-    #                     if n.denominator == 1:
-    #                         solved.append(self._em.Int(n.numerator))
-    #                     else:
-    #                         solved.append(self._em.Real(n))
-    #             else:
-    #                 raise SyntaxError(f"Not able to handle: {exp}")
-    #     assert len(solved) == 1  # sanity check
-    #     return solved.pop()
+        # inline_counter
+        self.inline_version = 0
 
+    # TODO: ASK self._add_effect ya no se usa?
     def _add_effect(
         self,
         problem: model.Problem,
@@ -447,9 +361,11 @@ class HPDLReader:
                 for e in exp:
                     to_add.append((e, cond))
             elif op == "when":
+                # TODO: Change
                 cond = self._parse_exp(problem, act, types_map, {}, exp[1], assignments)
                 to_add.append((exp[2], cond))
             elif op == "not":
+                # TODO: Change
                 exp = exp[1]
                 eff = (
                     self._parse_exp(problem, act, types_map, {}, exp, assignments),
@@ -458,13 +374,9 @@ class HPDLReader:
                 )
                 act.add_effect(*eff if timing is None else (timing, *eff))  # type: ignore
             elif op == "assign":
-                eff = (
-                    self._parse_exp(problem, act, types_map, {}, exp[1], assignments),
-                    self._parse_exp(problem, act, types_map, {}, exp[2], assignments),
-                    cond,
-                )
-                act.add_effect(*eff if timing is None else (timing, *eff))  # type: ignore
+                act.add_effect(timing, exp[0], exp[1], exp[2])
             elif op == "increase":
+                # TODO: Change
                 eff = (
                     self._parse_exp(problem, act, types_map, {}, exp[1], assignments),
                     self._parse_exp(problem, act, types_map, {}, exp[2], assignments),
@@ -472,6 +384,7 @@ class HPDLReader:
                 )
                 act.add_increase_effect(*eff if timing is None else (timing, *eff))  # type: ignore
             elif op == "decrease":
+                # TODO: Change
                 eff = (
                     self._parse_exp(problem, act, types_map, {}, exp[1], assignments),
                     self._parse_exp(problem, act, types_map, {}, exp[2], assignments),
@@ -485,13 +398,10 @@ class HPDLReader:
                 action_assignments = universal_assignments.setdefault(act, [])
                 action_assignments.append(exp)
             else:
-                eff = (
-                    self._parse_exp(problem, act, types_map, {}, exp, assignments),
-                    self._em.TRUE(),
-                    cond,
-                )
-                act.add_effect(*eff if timing is None else (timing, *eff))  # type: ignore
+                # TODO: Only dur_actions arrive here
+                act.add_effect(timing, exp[0], exp[1], exp[2])
 
+    # TODO: Clean
     def _add_condition(
         self,
         problem: model.Problem,
@@ -540,18 +450,12 @@ class HPDLReader:
                     cond = self._em.Forall(cond, *vars.values())
                 act.add_condition(t_all, cond)
             else:  # HPDL accept any exp, and considers (at start ...)
-                cond = self._parse_exp(
-                    problem,
-                    act,
-                    types_map,
-                    {} if vars is None else vars,
-                    exp,  # CHANGED
-                )
+                cond = exp # TODO: ASK exp is already parsed????
                 if vars is not None:
                     cond = self._em.Forall(cond, *vars.values())
                 act.add_condition(model.StartTiming(), cond)
-                # raise SyntaxError(f"Not able to handle: {exp}")
 
+    # TODO: Most variables declared here are not used, remove them
     def _add_timed_effects(
         self,
         problem: model.Problem,
@@ -571,6 +475,7 @@ class HPDLReader:
                 for e in eff[1:]:
                     to_add.append(e)
             elif len(eff) == 3 and op == "at" and eff[1] == "start":
+                # TODO: Change
                 self._add_effect(
                     problem,
                     act,
@@ -581,6 +486,7 @@ class HPDLReader:
                     assignments=assignments,
                 )
             elif len(eff) == 3 and op == "at" and eff[1] == "end":
+                # TODO: Change
                 self._add_effect(
                     problem,
                     act,
@@ -591,6 +497,7 @@ class HPDLReader:
                     assignments=assignments,
                 )
             elif len(eff) == 3 and op == "forall":
+                # TODO: Change
                 assert universal_assignments is not None
                 action_assignments = universal_assignments.setdefault(act, [])
                 action_assignments.append(eff)
@@ -679,84 +586,6 @@ class HPDLReader:
             if self._totalcost in self._fve.get(c):
                 return False
         return True
-
-    # TODO Hay que modificar y añadir varias cosas en parse_problem, ver más abajo.
-    # def _parse_action(
-    #     self,
-    #     a,
-    #     problem: model.Problem,
-    #     types_map: Dict[str, model.Type],
-    #     universal_assignments: Dict["model.Action", List[ParseResults]],
-    # ):
-    #     """Parses an action from the domain and adds it to the problem"""
-    #     n = a["name"]
-    #     a_params = OrderedDict()
-    #     for g in a.get("params", []):
-    #         t = types_map[g[1] if len(g) > 1 else "object"]
-    #         for p in g[0]:
-    #             a_params[p] = t
-    #     if "duration" in a:
-    #         dur_act = model.DurativeAction(n, a_params, self._env)
-    #         dur = a["duration"][0]
-    #         if dur[0] == "=":
-    #             dur.pop(0)
-    #             dur.pop(0)
-    #             dur_act.set_fixed_duration(
-    #                 self._parse_exp(problem, dur_act, types_map, {}, dur)
-    #             )
-    #         elif dur[0] == "and":
-    #             upper = None
-    #             lower = None
-    #             for j in range(1, len(dur)):
-    #                 if dur[j][0] == ">=" and lower is None:
-    #                     dur[j].pop(0)
-    #                     dur[j].pop(0)
-    #                     lower = self._parse_exp(problem, dur_act, types_map, {}, dur[j])
-    #                 elif dur[j][0] == "<=" and upper is None:
-    #                     dur[j].pop(0)
-    #                     dur[j].pop(0)
-    #                     upper = self._parse_exp(problem, dur_act, types_map, {}, dur[j])
-    #                 else:
-    #                     raise SyntaxError(
-    #                         f"Not able to handle duration constraint of action {n}"
-    #                     )
-    #             if lower is None or upper is None:
-    #                 raise SyntaxError(
-    #                     f"Not able to handle duration constraint of action {n}"
-    #                 )
-    #             d = model.ClosedDurationInterval(lower, upper)
-    #             dur_act.set_duration_constraint(d)
-    #         else:
-    #             raise SyntaxError(
-    #                 f"Not able to handle duration constraint of action {n}"
-    #             )
-    #         cond = a["cond"][0]
-    #         self._add_condition(problem, dur_act, cond, types_map)
-    #         eff = a["eff"][0]
-    #         self._add_timed_effects(
-    #             problem, dur_act, types_map, universal_assignments, eff
-    #         )
-    #         problem.add_action(dur_act)
-    #         self.has_actions_cost = (
-    #             self.has_actions_cost and self._durative_action_has_cost(dur_act)
-    #         )
-    #         return dur_act
-    #     else:
-    #         act = model.InstantaneousAction(n, a_params, self._env)
-    #         if "pre" in a:
-    #             act.add_precondition(
-    #                 self._parse_exp(problem, act, types_map, {}, a["pre"][0])
-    #             )
-    #         if "eff" in a:
-    #             self._add_effect(
-    #                 problem, act, types_map, universal_assignments, a["eff"][0]
-    #             )
-    #         problem.add_action(act)
-    #         # Do we need to do it here? it comes from _parse_problem method
-    #         self.has_actions_cost = (
-    #             self.has_actions_cost and self._instantaneous_action_has_cost(act)
-    #         )
-    #         return act
 
     # TODO: Here start the refactoring of the code
     def _build_problem(self, name: str, features: List[str]) -> model.Problem:
@@ -1005,9 +834,18 @@ class HPDLReader:
             elif op == "forall":
                 assert isinstance(exp, ParseResults)
                 # Get the list of universal_assignments linked to this action. If it does not exist, default it to the empty list
+                # TODO: Why was this commented???
+                # Meterlo en assignments porque luego al crear el problem.pddl
+                # se van a expandir
+                # TODO: We should receive the action for this
+                # so in the end this becomes parse and add effect
                 # assert self.universal_assignments is not None
+                # assert act is not None
                 # action_assignments = self.universal_assignments.setdefault(act, [])
                 # action_assignments.append(exp)
+
+                # Returning and checking elsewhere
+                result.append(exp)
             else:
                 eff = (
                     self._parse_exp({}, exp, assignments, available_params),
@@ -1028,12 +866,15 @@ class HPDLReader:
         cond: ParseResults,
         eff: ParseResults,
     ) -> model.DurativeAction:
+
         dur_act = model.DurativeAction(name, params, self._env)
+
+        # Parse duration
         if duration[0] == "=":
             duration.pop(0)
             duration.pop(0)
             dur_act.set_fixed_duration(
-                self._parse_exp(self.problem, dur_act, self.types_map, {}, duration)
+                self._parse_exp({}, duration, {}, params)
             )
         elif duration[0] == "and":
             upper = None
@@ -1042,15 +883,11 @@ class HPDLReader:
                 if duration[j][0] == ">=" and lower is None:
                     duration[j].pop(0)
                     duration[j].pop(0)
-                    lower = self._parse_exp(
-                        self.problem, dur_act, self.types_map, {}, duration[j]
-                    )
+                    lower = self._parse_exp({}, duration[j], {}, params)
                 elif duration[j][0] == "<=" and upper is None:
                     duration[j].pop(0)
                     duration[j].pop(0)
-                    upper = self._parse_exp(
-                        self.problem, dur_act, self.types_map, {}, duration[j]
-                    )
+                    upper = self._parse_exp({}, duration[j], {}, params)
                 else:
                     raise SyntaxError(
                         f"Not able to handle duration constraint of action {name}"
@@ -1065,16 +902,25 @@ class HPDLReader:
             raise SyntaxError(
                 f"Not able to handle duration constraint of action {name}"
             )
-        # cond = action["cond"][0]
-        self._add_condition(self.problem, dur_act, cond, self.types_map)
-        # eff = action["eff"][0]
-        self._add_timed_effects(
-            self.problem, dur_act, self.types_map, self.universal_assignments, eff
-        )
-        # problem.add_action(dur_act)
+
+        # Add conditions to action
+        self._add_condition(self.problem, dur_act, [cond], self.types_map)
+
+        # Add each effect to action
+        for f in eff:
+            if isinstance(f, Tuple):
+                self._add_timed_effects(
+                    self.problem, dur_act, self.types_map, self.universal_assignments, f
+                )
+            else:                
+                assert self.universal_assignments is not None
+                action_assignments = self.universal_assignments.setdefault(dur_act, [])
+                action_assignments.append(f)
+
         self.has_actions_cost = (
             self.has_actions_cost and self._durative_action_has_cost(dur_act)
         )
+
         return dur_act
 
     def _build_action(
@@ -1089,10 +935,10 @@ class HPDLReader:
 
         # TODO: Check durative actions
         if durative:
-            return self._build_durative_action(name, params)
+            return self._build_durative_action(name, params, duration[0], pre, eff)
 
         act = model.InstantaneousAction(name, params, self._env)
-        # if len(pre):
+
         if pre:
             act.add_precondition(pre)
 
@@ -1103,6 +949,10 @@ class HPDLReader:
                 act.add_increase_effect(f[0], f[1], f[2])
             elif f[3] == "decrease":
                 act.add_decrease_effect(f[0], f[1], f[2])
+            elif f[3][0] == "forall":
+                assert self.universal_assignments is not None
+                action_assignments = self.universal_assignments.setdefault(act, [])
+                action_assignments.append(f)
             else:
                 act.add_effect(f[0], f[1], f[2])
 
@@ -1142,28 +992,6 @@ class HPDLReader:
 
         return res
 
-        # act = model.InstantaneousAction(action_name, a_params, self._env)
-        # pre = [self._parse_exp(self.problem, act, self.types_map, {}, action["pre"][0])]
-
-        # if "pre" in action:
-        #     act.add_precondition(
-        #         self._parse_exp(self.problem, act, self.types_map, {}, action["pre"][0])
-        #     )
-        # if "eff" in action:
-        #     self._add_effect(
-        #         self.problem,
-        #         act,
-        #         self.types_map,
-        #         self.universal_assignments,
-        #         action["eff"][0],
-        #     )
-        # # problem.add_action(act)
-        # # Do we need to do it here? it comes from _parse_problem method
-        # self.has_actions_cost = (
-        #     self.has_actions_cost and self._instantaneous_action_has_cost(act)
-        # )
-        # return act
-
     def _parse_inline(
         self,
         inline,
@@ -1176,8 +1004,10 @@ class HPDLReader:
 
         # Find the first available name for the inline task
         # TODO: this is not very efficient; improve it
-        while self.problem.has_action(f"{inline_name}_{inline_version}"):
-            inline_version += 1
+        inline_version = self.inline_version
+        self.inline_version += 1
+        # while self.problem.has_action(f"{inline_name}_{inline_version}"):
+        #     inline_version += 1
 
         res = OrderedDict()
 
@@ -1375,17 +1205,28 @@ class HPDLReader:
         # TODO: Some param could have been defined in another subtask, check that
         # doesn't brings up an error
         # 1: Find subtask params
-        params_ordict = self._parse_params(subtask["params"])
-        # print("subtask params", params_ordict)
+        subt_params = self._parse_params(subtask["params"])
+        # print("subtask params", subt_params)
 
         # 2: Find params of action/task invoked
         task_params = OrderedDict({p.name: p.type for p in task.parameters})
         # print("task params", task_params)
 
+        # TODO: Ahora mismo subt_params contiene la declaración de la subtask
+        # y task_params la de la acción/tarea.
+        # Los nombres no tienen que coincidir
+        # Habría que iterar por ambos y crear un nuevo dict que le asigna a la
+        # variable de param_ordict el tipo en task_params
+        # Si no va a fallar cuando los nombres no coincidan
+        # TODO: What if the domain has an error, and both dict have different size
+        params = OrderedDict()
+        for s_p, t_p in zip(subt_params.items(), task_params.items()):
+            params[s_p[0]] = t_p[1]
+
         # 3: Parse exp adding ? to each variable (somehow without ? it fails)
         parameters = [
-            self._parse_exp({}, "?" + str(param), {}, task_params)
-            for param in params_ordict
+            self._parse_exp({}, "?" + str(param), {}, params)
+            for param in subt_params
         ]
 
         # Create and return Subtask
@@ -1487,6 +1328,7 @@ class HPDLReader:
                 self.problem.add_method(method_model)
 
         print("problem", self.problem)
+        # print(self.universal_assignments)
         raise NotImplementedError("TODO")
 
         if problem_filename is not None:
