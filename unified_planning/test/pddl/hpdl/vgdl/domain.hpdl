@@ -529,11 +529,11 @@
 	(:action BOX_HOLE_KILLSPRITE
 		:parameters (?x - box ?y - Immovable )
 		:precondition (and 
+						(forall (?a - MovingAvatar) (and (can-move-down ?a) (can-move-up ?a))) ; (forall) here only for testing
 						(= (coordinate_x ?x) (coordinate_x ?y))
 						(= (coordinate_y ?x) (coordinate_y ?y))
 					)
 		:effect (and 
-					(forall (?a - box) (can-move-down ?a))
 					(assign (last_coordinate_x ?x) (coordinate_x ?x))
 					(assign (last_coordinate_y ?x) (coordinate_y ?x))
 					(assign (coordinate_x ?x) -1)

@@ -346,10 +346,10 @@
  :parameters (?a - aircraft ?c1 ?c2 - city)
  :duration (= ?duration (/ (distance ?c1 ?c2) (fast-speed ?a)))
  :condition (and  (at ?a ?c1)
+                (forall (?p - person) (at ?p ?c2)) ; (forall) here only for testing
                   (>= (fuel ?a) 
                          (* (distance ?c1 ?c2) (fast-burn ?a))))
  :effect (and (not (at ?a ?c1))
-               (forall (?p - person) (at ?p ?c2))
                (increase (total-fuel-used)
                          (* (distance ?c1 ?c2) (fast-burn ?a)))
               (decrease (fuel ?a) 

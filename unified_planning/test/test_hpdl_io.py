@@ -49,6 +49,8 @@ class TestHpdlIO(TestCase):
 
         domain_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "vgdl/domain.hpdl")
         problem_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "vgdl/problem.hpdl")
+        # domain_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "domain.hpdl")
+        # problem_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "problem.hpdl")
         problem = reader.parse_problem(domain_filename, problem_filename)
 
         # writer = HPDLWriter(problem)
@@ -58,8 +60,11 @@ class TestHpdlIO(TestCase):
         # print(hpdl_problem)
 
         assert isinstance(problem, up.model.htn.HierarchicalProblem)
-        self.assertEqual(24, len(problem.fluents))
-        self.assertEqual(14, len(problem.actions))
+        # print(problem)
+        # print(problem.goals)
+
+        self.assertEqual(24, len(problem.fluents)) # 14 functions + 10 predicates
+        self.assertEqual(26, len(problem.actions)) # 14 actions + 12 inlines
         self.assertEqual(
             [
                 "Turn",
@@ -99,4 +104,4 @@ class TestHpdlIO(TestCase):
         self.assertEqual(
             4, len(problem.method("check-interactions-avatar_wall_stepback").subtasks)
         )
-        # self.assertEqual(2, len(problem.task_network.subtasks))
+        self.assertEqual(2, len(problem.task_network.subtasks))
