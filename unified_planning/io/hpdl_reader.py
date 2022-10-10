@@ -46,7 +46,7 @@ class HPDLGrammar:
         # obj1 obj2 - parent
         name_list = Group(Group(OneOrMore(name)) + Optional(Suppress("-") + name))
 
-        variable = Suppress("?") + name
+        variable = Optional(Suppress("?")) + name   # Optional for goals
         typed_variables = Group(
             Group(OneOrMore(variable)).setResultsName("variables")
             + Optional(Suppress("-") + name).setResultsName("type")
@@ -244,7 +244,10 @@ class HPDLGrammar:
             Suppress("(")
             + ":tasks-goal"
             + ":tasks"
-            + nestedExpr().setResultsName("goal")
+            + Suppress("(")
+            # + nestedExpr().setResultsName("subtasks")
+            + Group(OneOrMore(subtask_def)).setResultsName("subtasks")
+            + Suppress(")")
             + Suppress(")")
         )
 
@@ -268,7 +271,7 @@ class HPDLGrammar:
             + ":init"
             + ZeroOrMore(nestedExpr()).setResultsName("init")
             + Suppress(")")
-            + Optional(goal)
+            + Optional(goal.setResultsName("goal")) # TODO: It isn't optional in HPDL, right?
             + Optional(Suppress("(") + ":metric" + metric + Suppress(")"))
             + Suppress(")")
         )
@@ -982,9 +985,8 @@ class HPDLReader:
         res["duration"] = duration
 
         if "pre" in action:
-            # print({}, action["pre"][0], {}, a_params)
             res["pre"] = self._parse_exp({}, action["pre"][0], {}, a_params)
-        else:
+        else: # "pre" always exist, although it might be empty
             res["pre"] = []
 
         if "eff" in action:
@@ -1031,9 +1033,13 @@ class HPDLReader:
         # Parse conditions and effects
         if "cond" in inline:
             res["cond"] = self._parse_exp({}, inline["cond"][0], {}, res["params"])
+        else:
+            res["cond"] = []
 
         if "eff" in inline:
             res["eff"] = self._parse_effect(inline["eff"][0], True, None, {}, res["params"])
+        else:
+            res["eff"] = []
 
 
         # Build action
@@ -1332,10 +1338,7 @@ class HPDLReader:
                 method_model = self._build_method(method, task["name"])
                 self.problem.add_method(method_model)
 
-        # print("problem", self.problem)
-        # print(self.universal_assignments)
-        # raise NotImplementedError("TODO")
-
+        # Parse problem
         if problem_filename is not None:
             problem_res = self._pp_problem.parseFile(problem_filename)
 
@@ -1400,23 +1403,6 @@ class HPDLReader:
                         else:
                             raise NotImplementedError
 
-            # tasknet = problem_res.get("htn", None)
-            # if tasknet is not None:
-            #     assert isinstance(self.problem, htn.HierarchicalProblem)
-            #     tasks = self._parse_subtasks(
-            #         tasknet["tasks"][0], None, self.problem, self.types_map
-            #     )
-            #     for task in tasks:
-            #         self.problem.task_network.add_subtask(task)
-            #     if len(tasknet["ordering"][0]) != 0:
-            #         raise SyntaxError(
-            #             "Ordering not supported in the initial task network"
-            #         )
-            #     if len(tasknet["constraints"][0]) != 0:
-            #         raise SyntaxError(
-            #             "Constraints not supported in the initial task network"
-            #         )
-
             for i in problem_res.get("init", []):
                 if i[0] == "=":
                     self.problem.set_initial_value(
@@ -1442,10 +1428,14 @@ class HPDLReader:
                         self._em.TRUE(),
                     )
 
-            if "goal" in problem_res:
-                self.problem.add_goal(self._parse_exp({}, problem_res["goal"][0]))
-            elif not isinstance(self.problem, htn.HierarchicalProblem):
-                raise SyntaxError("Missing goal section in problem file.")
+            # HPDL task-goal is the equivalent of HDDL htn tasks
+            tasknet = problem_res.get("goal", None)
+            if tasknet is not None:
+                tasks, _ = self._parse_method(
+                    tasknet, self.types_map
+                )
+                for task in tasks:
+                    self.problem.task_network.add_subtask(task)
 
             self.has_actions_cost = (
                 self.has_actions_cost and self._problem_has_actions_cost(self.problem)

@@ -1875,8 +1875,7 @@
 
 	(:tasks-goal
 		:tasks(
-			(Turn)
-			(forall (?a - MovingAvatar) (and (can-move-down ?a) (can-move-up ?a))) ; (forall) here only for testing
+			(Turn A0)
 		)
 	)
 

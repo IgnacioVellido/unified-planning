@@ -98,8 +98,19 @@
 							(check-interactions)
 							(create-interactions)
 							(:inline () (increase (turn) 1))
-							; TODO: Make it work
-							; (:inline () (and (increase (turn) 1) (forall (?a - MovingAvatar) (and (can-move-down ?a) (can-move-up ?a))))) ; (forall) here only for testing)
+							; TODO: Make it work, somehow turns into infinite loop
+							; (:inline 
+							; 	() 
+							; 	(and 
+							; 		(increase (turn) 1)
+							; 		(forall (?a2 - MovingAvatar) 
+							; 			(and 
+							; 				(can-move-down ?a2)
+							; 				(can-move-up ?a2)
+							; 			)
+							; 		)
+							; 	)
+							; ) ; (forall) here only for testing)
 							(Turn ?a)
 						)
 		)

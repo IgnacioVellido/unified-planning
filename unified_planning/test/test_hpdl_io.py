@@ -62,6 +62,7 @@ class TestHpdlIO(TestCase):
         assert isinstance(problem, up.model.htn.HierarchicalProblem)
         # print(problem)
         # print(problem.goals)
+        # print(problem.actions)
 
         self.assertEqual(24, len(problem.fluents)) # 14 functions + 10 predicates
         self.assertEqual(26, len(problem.actions)) # 14 actions + 12 inlines
@@ -104,4 +105,4 @@ class TestHpdlIO(TestCase):
         self.assertEqual(
             4, len(problem.method("check-interactions-avatar_wall_stepback").subtasks)
         )
-        self.assertEqual(2, len(problem.task_network.subtasks))
+        self.assertEqual(1, len(problem.task_network.subtasks)) # Goal
