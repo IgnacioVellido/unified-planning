@@ -1375,8 +1375,6 @@ class HPDLReader:
                             name: obj for name, obj in zip(var_names, objects)
                         }
                         if isinstance(action, model.InstantaneousAction):
-                            print(action)
-                            print(eff[2])
                             self._add_effect(
                                 action,
                                 self.types_map,
@@ -1385,10 +1383,16 @@ class HPDLReader:
                                 assignments=assignments,
                             )
                         elif isinstance(action, model.DurativeAction):
+                            # TODO: There should be another way for this
+                            # Create dict with params and its types 
+                            # Can't use action._parameters as it returns 
+                            # .Parameter instead of ._UserType
+                            params = OrderedDict([(k, v.type) for k,v in action._parameters.items()])
+
                             self._add_timed_effects(
                                 self.problem,
                                 action,
-                                self.types_map,
+                                params,
                                 None,
                                 eff[2],
                                 assignments=assignments,
