@@ -937,7 +937,7 @@ class HPDLReader:
                 act.add_increase_effect(f[0], f[1], f[2])
             elif f[3] == "decrease":
                 act.add_decrease_effect(f[0], f[1], f[2])
-            elif f[3][0] == "forall":
+            elif len(f) == 3 and f[3][0] == "forall":
                 assert self.universal_assignments is not None
                 action_assignments = self.universal_assignments.setdefault(act, [])
                 action_assignments.append(f)
