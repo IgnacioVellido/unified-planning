@@ -3,7 +3,7 @@
 ; Buscando el menor consumo de fuel
 
 (define (problem zeno-0) (:domain zeno-travel)
-(:customization
+; (:customization
 ; (= :time-format "%d/%m/%Y %H:%M:%S")
 ; (= :time-horizon-relative 2500)
 ; (= :time-start "05/06/2007 08:00:00")
