@@ -332,11 +332,11 @@
 (:durative-action fly 
  :parameters (?a - aircraft ?c1 ?c2 - city)
  :duration (= ?duration (/ (distance ?c1 ?c2) (slow-speed ?a)))
- :condition (and  (at ?a ?c1)
+ :condition (and  (at end (at ?a ?c1)) ; (at end) here only for testing
                   (>= (fuel ?a) 
                          (* (distance ?c1 ?c2) (slow-burn ?a))))
  :effect (and  (not (at ?a ?c1))
-               (at ?a ?c2)
+               (at start (at ?a ?c2)) ; (at start) here only for testing
               (increase (total-fuel-used)
                          (* (distance ?c1 ?c2) (slow-burn ?a)))
               (decrease (fuel ?a) 
@@ -359,6 +359,6 @@
  :parameters (?a - aircraft ?c - city)
  :duration (= ?duration (/ (- (capacity ?a) (fuel ?a)) (refuel-rate ?a)))
  :condition (and  (> (capacity ?a) (fuel ?a))
-                 (at ?a ?c))
+                 (over all (at ?a ?c))) ; (over all) here only for testing
  :effect (assign (fuel ?a) (capacity ?a)))
 )
