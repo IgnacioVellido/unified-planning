@@ -1481,12 +1481,27 @@ class HPDLReader:
             # TODO: Add ordering to task_network
             tasknet = problem_res.get("goal", None)
             if tasknet is not None:
-                ordering, _ = self._parse_method(
+                subtasks, _ = self._parse_method(
                     tasknet, self.types_map
                 )
-                for o in ordering:
-                    for task in o[1]:
-                        self.problem.task_network.add_subtask(task) 
+
+                # Add subtasks to task_network
+                for ordering in subtasks:
+                    for s in ordering[1]:
+                        self.problem.task_network.add_subtask(s)
+
+                    if ordering[0] == "(":
+                        self.problem.task_network.set_ordered(*ordering[1])
+
+                # All subtasks from the next iteration have sequential order with 
+                # respect to the previous iteration
+                if len(ordering) >= 2:
+                    for i in range(1, len(subtasks)):
+                        # Loop through subtasks of previous ordering
+                        for s1 in subtasks[i-1][1]:
+                            for s2 in subtasks[i][1]:
+                                self.problem.task_network.set_ordered(s1,s2)      
+
 
             self.has_actions_cost = (
                 self.has_actions_cost and self._problem_has_actions_cost(self.problem)

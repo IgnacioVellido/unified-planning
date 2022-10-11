@@ -285,11 +285,11 @@
 
 (:tasks-goal
    :tasks(
-    ; [
-    (transport-person p25 huelva)    
-    (transport-person p24 sevilla)    
-    (transport-person p23 gibraltar)    
-    ; ] ; Testing order
+    [
+        (transport-person p25 huelva)    
+        (transport-person p24 sevilla)    
+        (transport-person p23 gibraltar)    
+    ] ; Testing order
     (transport-person p22 cadiz)  
     (transport-person p21 malaga)    
     (transport-person p20 cordoba)    

@@ -125,6 +125,16 @@ class TaskNetwork:
         ), f"The expression is not static (references a fluent): {constraint}"
         self._constraints.append(constraint)
 
+    def set_ordered(self, *subtasks: Subtask):
+        """Imposes a sequential order between the given subtasks."""
+        if len(subtasks) < 2:
+            return
+        prev = subtasks[0]
+        for i in range(1, len(subtasks)):
+            next = subtasks[i]
+            self.set_strictly_before(prev, next)
+            prev = next
+
     def set_strictly_before(
         self,
         lhs: Union[Subtask, Timepoint, Timing],
