@@ -193,8 +193,10 @@
                       (hay-tiempo-lento ?a ?c1 ?c2) 
                     )
       :tasks (
-              (refuel ?a ?c1)
-              (fly ?a ?c1 ?c2)
+              ; (
+                (refuel ?a ?c1)
+                (fly ?a ?c1 ?c2)
+              ; ) ; Testing order
             )
     )
 
@@ -205,8 +207,23 @@
                       (not (= ?c1 ?c3))                      
                     )
       :tasks (
+              ; (hacer-escala ?a ?c1 ?c3)
+              ; (mover-avion ?a ?c3 ?c2)
+              ; Testing ordering
+              [
+                (hacer-escala ?a ?c1 ?c3)
+                (mover-avion ?a ?c3 ?c2)
+              ]
               (hacer-escala ?a ?c1 ?c3)
               (mover-avion ?a ?c3 ?c2)
+              [
+                (hacer-escala ?a ?c1 ?c3)
+                (mover-avion ?a ?c3 ?c2)
+              ]
+              [
+                (hacer-escala ?a ?c1 ?c3)
+                (mover-avion ?a ?c3 ?c2)
+              ]
             )
     )
   )

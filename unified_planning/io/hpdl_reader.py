@@ -184,7 +184,17 @@ class HPDLGrammar:
             + Optional(":meta" + Suppress("(") + OneOrMore(tag_def) + Suppress(")"))
             + ":tasks"
             + Suppress("(")
-            + Group(ZeroOrMore(inline_def | subtask_def)).setResultsName("subtasks")
+            + Group(
+                ZeroOrMore(
+                    Group(
+                        # Ordering is defined with [] or ()
+                        Optional("[", default="(").setResultsName("ordering")
+                        + OneOrMore(inline_def | subtask_def)
+                        + Suppress(Optional("]"))
+                    )
+                )
+            ).setResultsName("subtasks")
+            # + Group(ZeroOrMore(inline_def | subtask_def)).setResultsName("subtasks")
             + Suppress(")")
             + Suppress(")")
         )
@@ -245,8 +255,18 @@ class HPDLGrammar:
             + ":tasks-goal"
             + ":tasks"
             + Suppress("(")
-            # + nestedExpr().setResultsName("subtasks")
-            + Group(OneOrMore(subtask_def)).setResultsName("subtasks")
+            # TODO: Almost the same as in method, refactor
+            + Group(
+                ZeroOrMore(
+                    Group(
+                        # Ordering is defined with [] or ()
+                        Optional("[", default="(").setResultsName("ordering")
+                        + OneOrMore(subtask_def)
+                        + Suppress(Optional("]"))
+                    )
+                )
+            ).setResultsName("subtasks")
+            # + Group(OneOrMore(subtask_def)).setResultsName("subtasks")
             + Suppress(")")
             + Suppress(")")
         )
@@ -266,7 +286,6 @@ class HPDLGrammar:
             + Suppress(")")
             + Optional(sec_requirements)
             + Optional(Suppress("(") + ":objects" + objects + Suppress(")"))
-            # + Optional(htn_def.setResultsName("htn"))
             + Suppress("(")
             + ":init"
             + ZeroOrMore(nestedExpr()).setResultsName("init")
@@ -1131,27 +1150,37 @@ class HPDLReader:
         method_params: OrderedDict # Task and pre params of method
     ):
         # Parse subtasks
-        subtasks = []
+        ordered_subtasks = [] # List of tuple (order, list(subtask))
         subtasks_params = []
 
-        for subs in method.get("subtasks", []):
-            subtask_model = self._parse_subtask(subs, method_params)
-            if subtask_model is not None:
-                subtasks.append(subtask_model)
+        # Get ordered subtasks
+        for ordering in method.get("subtasks", []):
+            subtasks = []   # List of model.Subtask
+            order = ordering.get("ordering", "(")
 
-                # Get model.Parameter for each param
-                # TODO: See parse_inline params TODO
-                for p in subtask_model.parameters:
-                    subtasks_params.append(p.parameter())
+            # ordering[0] is the order tag, rest are subtasks definitions
+            for subs in ordering[1:]:
+                subtask_model = self._parse_subtask(subs, method_params)
 
-        return subtasks, subtasks_params
+                if subtask_model is not None:
+                    # Add model to list
+                    subtasks.append(subtask_model)
+
+                    # Get model.Parameter for each param
+                    # TODO: See parse_inline params TODO
+                    for p in subtask_model.parameters:
+                        subtasks_params.append(p.parameter())
+
+            # Append ordering to method subtasks
+            ordered_subtasks.append((order, subtasks))
+
+        return ordered_subtasks, subtasks_params
 
     # self.problem must have task built
     def _build_method(self, method: OrderedDict, task_name: str) -> htn.Method:
         method_name = f'{task_name}-{method["name"]}'  # Methods names are
         # not unique across tasks
 
-        # print("\n\nPARSING method " + method_name)
         method_params = OrderedDict()
 
         # Get parent task params
@@ -1180,8 +1209,21 @@ class HPDLReader:
         method_model.set_task(task_model)
 
         # Add subtasks to model
-        for s in subtasks:
-            method_model.add_subtask(s)
+        for ordering in subtasks:
+            for s in ordering[1]:
+                method_model.add_subtask(s)
+
+            if ordering[0] == "(":
+                method_model.set_ordered(*ordering[1])
+
+        # All subtasks from the next iteration have sequential order with 
+        # respect to the previous iteration
+        if len(subtasks) >= 2:
+            for i in range(1, len(subtasks)):
+                # Loop through subtasks of previous ordering
+                for s1 in subtasks[i-1][1]:
+                    for s2 in subtasks[i][1]:
+                        method_model.set_ordered(s1,s2)      
 
         # Add preconditions to model
         for pre in method_preconditions:
@@ -1195,7 +1237,6 @@ class HPDLReader:
         #         method.add_subtask(s)
         #     method.set_ordered(*ord_subs)
 
-        # print(method_model)
         return method_model
 
     def _parse_subtask(
@@ -1357,7 +1398,6 @@ class HPDLReader:
             for var, kind in objects.items():
                 self.problem.add_object(model.Object(var, kind, self.problem.env))
 
-            # TODO: Check it works
             # Add universal_assignments (forall, something-else?)
             for action, eff_list in self.universal_assignments.items():
                 for eff in eff_list:
@@ -1410,6 +1450,8 @@ class HPDLReader:
                         else:
                             raise NotImplementedError
 
+            # TODO: customization (time format/start/horizon/unit)
+            
             for i in problem_res.get("init", []):
                 if i[0] == "=":
                     self.problem.set_initial_value(
@@ -1436,13 +1478,15 @@ class HPDLReader:
                     )
 
             # HPDL task-goal is the equivalent of HDDL htn tasks
+            # TODO: Add ordering to task_network
             tasknet = problem_res.get("goal", None)
             if tasknet is not None:
-                tasks, _ = self._parse_method(
+                ordering, _ = self._parse_method(
                     tasknet, self.types_map
                 )
-                for task in tasks:
-                    self.problem.task_network.add_subtask(task)
+                for o in ordering:
+                    for task in o[1]:
+                        self.problem.task_network.add_subtask(task) 
 
             self.has_actions_cost = (
                 self.has_actions_cost and self._problem_has_actions_cost(self.problem)
