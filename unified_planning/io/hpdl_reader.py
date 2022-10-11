@@ -1066,25 +1066,27 @@ class HPDLReader:
         """Returns params found in exp"""
         params = OrderedDict()
 
-        # TODO: Doing as a stack instead
-        # If we went to far, return empty
-        if isinstance(exp, str) or len(exp) < 2:
-            pass
-        else:
-            # Check if all elements are strings
-            if all(isinstance(x, str) for x in exp):
-                params.update(self._parse_params_and_types(exp[1:]))
+        stack = [exp]
+        while len(stack) > 0:
+            exp = stack.pop()
 
-            else:
-                # Find params in each sub expression
-                for e in exp:
-                    params.update(self._get_params_in_exp(e))
-
+            # Check for single strings
+            # (probably won't return anything, as each string is only one word)
+            if isinstance(exp, str):
+                params.update(self._parse_params_and_types(exp))
+            elif len(exp) >= 2:
+                # Check if all elements are strings
+                if all(isinstance(e, str) for e in exp):
+                    params.update(self._parse_params_and_types(exp))
+                else:
+                    # Find params in each sub expression
+                    for e in exp:
+                        stack.append(e)
 
         return params
 
     def _parse_params_and_types(self, params: List[str]) -> List[str]:
-        """Parses a list of parameters and returns a list of the parameters names"""
+        """Parses a list of parameters and returns a list of the parameters names. Only returns declared paramaters (?o - <type>)"""
 
         def parse_type(type: str):
             if type in self.types_map:
@@ -1103,7 +1105,12 @@ class HPDLReader:
                 ):  # type is specified, check it
                     res_params[params[i][1:]] = parse_type(params[i + 2])
                     i += 3
-                else:   # Ignore it
+                else:   # Not type specified, ignore
+                    i += 1
+                    # In case we sometime need to get non-specified params,
+                    # change line above
+            
+            else: # Not a param, ignore
                     i += 1
 
         return res_params
