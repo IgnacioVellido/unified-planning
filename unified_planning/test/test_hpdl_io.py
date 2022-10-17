@@ -47,10 +47,10 @@ class TestHpdlIO(TestCase):
     def test_hpdl_reader(self):
         reader = HPDLReader()
 
-        domain_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "vgdl/domain.hpdl")
-        problem_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "vgdl/problem.hpdl")
-        # domain_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "domain.hpdl")
-        # problem_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "problem.hpdl")
+        # domain_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "vgdl/domain.hpdl")
+        # problem_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "vgdl/problem.hpdl")
+        domain_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "domain.hpdl")
+        problem_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "problem.hpdl")
         problem = reader.parse_problem(domain_filename, problem_filename)
 
         # writer = HPDLWriter(problem)
@@ -61,8 +61,13 @@ class TestHpdlIO(TestCase):
 
         assert isinstance(problem, up.model.htn.HierarchicalProblem)
         # print(problem)
-        # print(problem.goals)
+        # print("Task goals:", problem.task_network)
         # print(problem.actions)
+        # print(problem.fluents)
+        for f in problem.fluents:
+            print(f)
+            if f.type.is_func_type():
+                print("GET CODE", f.code)
 
         self.assertEqual(24, len(problem.fluents)) # 14 functions + 10 predicates
         self.assertEqual(26, len(problem.actions)) # 14 actions + 12 inlines
@@ -105,4 +110,4 @@ class TestHpdlIO(TestCase):
         self.assertEqual(
             4, len(problem.method("check-interactions-avatar_wall_stepback").subtasks)
         )
-        self.assertEqual(1, len(problem.task_network.subtasks)) # Goal
+        self.assertEqual(2, len(problem.task_network.subtasks)) # Goal

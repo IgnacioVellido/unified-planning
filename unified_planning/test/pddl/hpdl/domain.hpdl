@@ -60,7 +60,53 @@
               (max-pasajeros ?a - aircraft)  ; Número máximo de pasajeros
 
               (max-tiempo-vuelo ?a - aircraft) ; Máximo tiempo que puede estar volando un avión
-                                               ; at minutos 
+                                               ; at minutos
+
+              (distance2 ?x1 ?y1 ?x2 ?y2) {
+                  import math
+                  return math.sqrt((?x2 - ?x1) * (?x2 -?x1) + (?y2 - ?y1) * (?y2 - ?y1))
+              }
+
+              (calculate_duration_D ?d ?dt_dd ?dt_activity ?dt_wd) {
+                  dur = -1
+
+                  # Deciding between NDD or EDD
+                  max_hours = 10 if (?dt_dd > (9*60)) else 9
+
+                  # If dt_dd already bigger than 10, returning negative value
+                  dur = (max_hours * 60) - ?dt_dd
+
+                  # Do not surpass CDD time limit
+                  cdd_remaining = (4.5*60) - ?dt_activity
+
+                  # Do not surpass DT_WD time limit
+                  wd_remaining = (56*60) - ?dt_wd
+
+                  # Return the smallest
+                  dur = dur if (dur < cdd_remaining) else cdd_remaining
+                  dur = dur if (dur < wd_remaining) else wd_remaining
+
+                  # Bigger than 0
+                  dur = dur if (dur > 0) else -1
+
+                  return dur
+              }
+
+              (get_product_price ?p_id) {
+                  import MySQLdb
+
+                  mydb = MySQLdb.Connect(db='warehouse')
+                  cursor = mydb.cursor()
+
+                  stmt = "SELECT pvp FROM products WHERE id = " + str(?p_id)
+                  cursor.execute(stmt)
+                  resultSet = cursor.fetchall()
+
+                  pvp = resultSet[0][0]
+
+                  mydb.close()
+                  return pvp
+              }
   )
 
   ;;; Derived ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

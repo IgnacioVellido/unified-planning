@@ -43,6 +43,10 @@ class Type:
         """Returns `True` iff is `time `True`."""
         return False
 
+    def is_func_type(self) -> bool:
+        """Returns `True` iff is `func Type`."""
+        return False
+
     def is_compatible(self, t_right: "Type") -> bool:
         """
         Returns `True` if the `Type` `t_right` can be assigned to a :class:`~unified_planning.model.Fluent` that which :func:`type <unified_planning.model.Fluent.type>` is self.
@@ -197,9 +201,29 @@ class _RealType(Type):
         return True
 
 
+class _FuncType(Type):
+    """Represents a Function type."""
+
+    def __init__(self): #, code: str = ""):
+        Type.__init__(self)
+        # self._code = code
+
+    def __repr__(self) -> str:
+        # print("CODE", self._code)
+        return "func"# + self._code
+
+    # @property
+    # def code(self) -> str:
+    #     """Returns the type's code."""
+    #     return self._code
+
+    def is_func_type(self) -> bool:
+        return True
+
+
 BOOL = _BoolType()
 TIME = _TimeType()
-
+FUNC = _FuncType()
 
 class TypeManager:
     """Class that manages the :class:`Types <unified_planning.model.Type>` in the :class:`~unified_planning.Environment`."""
@@ -209,6 +233,7 @@ class TypeManager:
         self._ints: Dict[Tuple[Optional[int], Optional[int]], Type] = {}
         self._reals: Dict[Tuple[Optional[Fraction], Optional[Fraction]], Type] = {}
         self._user_types: Dict[Tuple[str, Optional[Type]], Type] = {}
+        self._func = FUNC # TODO: One or a dict?
 
     def has_type(self, type: Type) -> bool:
         """
@@ -230,6 +255,9 @@ class TypeManager:
         elif type.is_user_type():
             assert isinstance(type, _UserType)
             return self._user_types.get((type.name, type.father), None) == type
+        elif type.is_func_type():
+            assert isinstance(type, _FuncType)
+            return type == self._func
         else:
             raise NotImplementedError
 
@@ -297,6 +325,10 @@ class TypeManager:
             ut = _UserType(name, father)
             self._user_types[(name, father)] = ut
             return ut
+
+    def FuncType(self) -> Type:
+        """Returns this `Environment's` function `Type`."""
+        return self._func
 
 
 def domain_size(

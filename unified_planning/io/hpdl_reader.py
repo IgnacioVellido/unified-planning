@@ -99,12 +99,29 @@ class HPDLGrammar:
             + Suppress(")")
         )
 
+        # dumpchar = one_of(list(pyparsing.printables)+[' ']).leaveWhitespace()
+        # dumpline = pyparsing.delimitedList(dumpchar, delim=pyparsing.White(' ',exact=1)) + pyparsing.LineEnd().suppress()
+        # dumpline = pyparsing.delimitedList(dumpchar, delim=pyparsing.White('\n',exact=1))
+        # dumpline = ZeroOrMore(dumpchar) # + pyparsing.LineEnd().suppress()
+
+        python_code = (
+            # nestedExpr("{", "}", content=pyparsing.Regex('.*?'), ignoreExpr=None).leaveWhitespace()
+            # Suppress("{") # "{"
+            pyparsing.Regex('{(.|\n)*?}')
+            # + dumpchar
+            # + Suppress("}") # + "}"
+        ) # Python function
+
         # Functions can specify -number type
         sec_functions = (
             Suppress("(")
             + ":functions"
             + Group(
-                OneOrMore(predicate + Optional(Suppress("- number")))
+                OneOrMore(Group( # Added group
+                    predicate
+                    + Optional(Suppress("- number"))
+                    + Optional(python_code.setResultsName("python"))
+                ))
             ).setResultsName("functions")
             + Suppress(")")
         )
@@ -663,9 +680,18 @@ class HPDLReader:
         return res_params
 
     def _parse_function(self, func: OrderedDict) -> model.Fluent:
-        name = func[0]
-        params = self._parse_params(func[1])
-        f = model.Fluent(name, self._tm.RealType(), params, self._env)
+        print("Func", func)
+        name = func[0][0]   # Modified due to added grammar group
+        params = self._parse_params(func[0][1])
+
+        python = func.get("python", None)
+        if python is not None:
+            # Add python fluent
+            # self._add_python_fluent()
+            f = model.Fluent(name, self._tm.FuncType(), params, self._env, python)
+        else:
+            f = model.Fluent(name, self._tm.RealType(), params, self._env)
+
         if name == "total-cost":
             self.has_actions_cost = True
             self._totalcost = cast(model.FNode, self._em.FluentExp(f))
@@ -1341,7 +1367,9 @@ class HPDLReader:
         #                 porque un HPDLProblem tiene los mismos atributos que un HierarchicalProblem, y un conjunto
         #                 adicional como derived predicates y functions que se implementan con python.
         # TODO AÑADIR la funcion problem.add_pythonfunction(f)
+        print(domain_res["functions"])
         for f in domain_res.get("functions", []):
+            print(f)
             func = self._parse_function(f)
             self.problem.add_fluent(func)
 
