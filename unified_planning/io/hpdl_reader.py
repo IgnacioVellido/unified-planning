@@ -114,7 +114,8 @@ class HPDLGrammar:
         derived = Group(
             Suppress("(")
             + ":derived"
-            + nestedExpr().setResultsName("pre")
+            # + nestedExpr().setResultsName("pre")
+            + predicate
             + nestedExpr().setResultsName("exp")
             + Suppress(")")
         )
@@ -1291,6 +1292,36 @@ class HPDLReader:
 
     # _________________________________________________________
 
+    # [ParseResults([ParseResults([ParseResults(['x', 'y'], {})], {'variables': ['x', 'y']})], {})]
+    # [ParseResults([ParseResults([ParseResults(['a'], {}), 'aircraft'], {'variables': ['a'], 'type': ['aircraft']}), ParseResults([ParseResults(['c1'], {}), 'city'], {'variables': ['c1'], 'type': ['city']}), ParseResults([ParseResults(['c2'], {}), 'city'], {'variables': ['c2'], 'type': ['city']})], {})]
+
+    def _add_derived(
+        self,
+        derived: OrderedDict
+    ):
+        # print("\nDerived", derived)
+
+        name = derived[1][0]
+        params = self._parse_params(derived[1][1])
+
+        fluents = []
+        for exp in derived.get("exp", None): # Add fluents
+            # TODO: parse_predicate or parse_exp
+            # parse_predicate fails with operations like "<"
+            # fluent = self._parse_predicate(exp)
+
+            fluent = self._parse_exp({}, exp, {}, params) # Returns FNode
+            # fluent = self._parse_effect(exp, True, None, {}, params) # Returns list of (Fnode, Fnode)
+
+            # TODO: Instead of adding fluents to problem, add to derived
+            fluents.append(fluent)
+            # self.problem.add_fluent(fluent)
+
+        # print(name, params, fluents)
+        # return model.Derived(name, self._tm.BoolType(), params, self._env, fluents)
+        return None
+
+
     def parse_problem(
         self, domain_filename: str, problem_filename: typing.Optional[str] = None
     ) -> "model.Problem":
@@ -1331,14 +1362,6 @@ class HPDLReader:
             fluent = self._parse_predicate(p)
             self.problem.add_fluent(fluent)
 
-        # TODO   DERIVED PREDICATES Hay que añadir problem.add_derived_predicate() y esto tendría que ser en una
-        #       nueva subclase de HierarchicalProblem, que podríamos llamar HPDLProblem
-        for d in domain_res.get("derived", []):
-            pass
-            # print(d)
-            # derived = self._parse_derived(d)
-            # self.problem.add_fluent(derived)
-
         # TODO  Las funciones pddl se gestionan y se añaden como un fluent especial "con un tipo real".
         #       un fluent en el upfmodel es [name, type, signature], donde signature son los parámetros.
         #       habría que
@@ -1350,6 +1373,10 @@ class HPDLReader:
         for f in domain_res.get("functions", []):
             func = self._parse_function(f)
             self.problem.add_fluent(func)
+
+        # Must go after functions, as they can be used in derived
+        for d in domain_res.get("derived", []):
+            self._add_derived(d)
 
         # TODO Comprobar las constantes, que no deberían  dar problema
         for c in domain_res.get("constants", []):
