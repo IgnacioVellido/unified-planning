@@ -1292,9 +1292,6 @@ class HPDLReader:
 
     # _________________________________________________________
 
-    # [ParseResults([ParseResults([ParseResults(['x', 'y'], {})], {'variables': ['x', 'y']})], {})]
-    # [ParseResults([ParseResults([ParseResults(['a'], {}), 'aircraft'], {'variables': ['a'], 'type': ['aircraft']}), ParseResults([ParseResults(['c1'], {}), 'city'], {'variables': ['c1'], 'type': ['city']}), ParseResults([ParseResults(['c2'], {}), 'city'], {'variables': ['c2'], 'type': ['city']})], {})]
-
     def _add_derived(
         self,
         derived: OrderedDict
