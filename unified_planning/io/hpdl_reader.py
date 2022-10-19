@@ -109,12 +109,13 @@ class HPDLGrammar:
             + Suppress(")")
         )
 
-        # derived evaluates an expression and returns a boolean?
+        # derived evaluates a logical expression with given arguments
+        # planner changes occurrences of "pre" with "exp"
         derived = Group(
             Suppress("(")
             + ":derived"
             + nestedExpr().setResultsName("pre")
-            + nestedExpr().setResultsName("post")
+            + nestedExpr().setResultsName("exp")
             + Suppress(")")
         )
 
@@ -1332,6 +1333,11 @@ class HPDLReader:
 
         # TODO   DERIVED PREDICATES Hay que añadir problem.add_derived_predicate() y esto tendría que ser en una
         #       nueva subclase de HierarchicalProblem, que podríamos llamar HPDLProblem
+        for d in domain_res.get("derived", []):
+            pass
+            # print(d)
+            # derived = self._parse_derived(d)
+            # self.problem.add_fluent(derived)
 
         # TODO  Las funciones pddl se gestionan y se añaden como un fluent especial "con un tipo real".
         #       un fluent en el upfmodel es [name, type, signature], donde signature son los parámetros.
