@@ -123,8 +123,14 @@
                           (at ?a - aircraft ?c1 - city)
                     )
               
-      :tasks ( 
-              (embarcar-pasajeros ?a ?c1 ?c)              
+      :tasks (
+              ; (embarcar-pasajeros ?a ?c1 ?c)
+              ; Testing time management
+              (
+                (and (>= ?start 25) (< ?dur 3))
+                (embarcar-pasajeros ?a ?c1 ?c)
+              )
+
               (mover-avion ?a ?c1 ?c)
               (desembarcar-pasajeros ?a ?c)
             )

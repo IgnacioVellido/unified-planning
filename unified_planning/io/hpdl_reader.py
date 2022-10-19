@@ -176,6 +176,13 @@ class HPDLGrammar:
             Suppress("(") + name.setResultsName("name") + parameters + Suppress(")")
         ).setResultsName("subtask")
 
+        time_rest_subt = Group(
+            Suppress("(")
+            + nestedExpr().setResultsName("time_exp")
+            + subtask_def
+            + Suppress(")")
+        )
+
         method = Group(
             Suppress("(")
             + ":method"
@@ -191,7 +198,7 @@ class HPDLGrammar:
                     Group(
                         # Ordering is defined with [] or ()
                         Optional("[", default="(").setResultsName("ordering")
-                        + OneOrMore(inline_def | subtask_def)
+                        + OneOrMore(inline_def | subtask_def | time_rest_subt)
                         + Suppress(Optional("]"))
                     )
                 )
@@ -1162,6 +1169,13 @@ class HPDLReader:
 
             # ordering[0] is the order tag, rest are subtasks definitions
             for subs in ordering[1:]:
+                # TODO: Check and impose time restrictions
+                time = subs.get("time_exp", None)
+                if time is not None:
+                    print("Time constraint", time)
+                    # self._add_subtask_time()
+                    continue
+
                 subtask_model = self._parse_subtask(subs, method_params)
 
                 if subtask_model is not None:
