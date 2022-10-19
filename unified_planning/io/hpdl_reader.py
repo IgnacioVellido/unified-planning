@@ -86,9 +86,7 @@ class HPDLGrammar:
         sec_constants = (
             Suppress("(")
             + ":constants"
-            # + Optional(
             + OneOrMore(name_list).setResultsName("constants")
-            # )
             + Suppress(")")
         )
 
@@ -99,17 +97,8 @@ class HPDLGrammar:
             + Suppress(")")
         )
 
-        # dumpchar = one_of(list(pyparsing.printables)+[' ']).leaveWhitespace()
-        # dumpline = pyparsing.delimitedList(dumpchar, delim=pyparsing.White(' ',exact=1)) + pyparsing.LineEnd().suppress()
-        # dumpline = pyparsing.delimitedList(dumpchar, delim=pyparsing.White('\n',exact=1))
-        # dumpline = ZeroOrMore(dumpchar) # + pyparsing.LineEnd().suppress()
-
         python_code = (
-            # nestedExpr("{", "}", content=pyparsing.Regex('.*?'), ignoreExpr=None).leaveWhitespace()
-            # Suppress("{") # "{"
             pyparsing.Regex('{(.|\n)*?}')
-            # + dumpchar
-            # + Suppress("}") # + "}"
         ) # Python function
 
         # Functions can specify -number type
@@ -197,7 +186,6 @@ class HPDLGrammar:
             + name.setResultsName("name")
             + ":precondition"
             + nestedExpr().setResultsName("pre")
-            # TODO: Set order
             + Optional(":meta" + Suppress("(") + OneOrMore(tag_def) + Suppress(")"))
             + ":tasks"
             + Suppress("(")
@@ -211,7 +199,6 @@ class HPDLGrammar:
                     )
                 )
             ).setResultsName("subtasks")
-            # + Group(ZeroOrMore(inline_def | subtask_def)).setResultsName("subtasks")
             + Suppress(")")
             + Suppress(")")
         )
@@ -272,7 +259,6 @@ class HPDLGrammar:
             + ":tasks-goal"
             + ":tasks"
             + Suppress("(")
-            # TODO: Almost the same as in method, refactor
             + Group(
                 ZeroOrMore(
                     Group(
@@ -283,7 +269,6 @@ class HPDLGrammar:
                     )
                 )
             ).setResultsName("subtasks")
-            # + Group(OneOrMore(subtask_def)).setResultsName("subtasks")
             + Suppress(")")
             + Suppress(")")
         )
@@ -680,14 +665,12 @@ class HPDLReader:
         return res_params
 
     def _parse_function(self, func: OrderedDict) -> model.Fluent:
-        print("Func", func)
         name = func[0][0]   # Modified due to added grammar group
         params = self._parse_params(func[0][1])
 
+        # Check for python fluent
         python = func.get("python", None)
         if python is not None:
-            # Add python fluent
-            # self._add_python_fluent()
             f = model.Fluent(name, self._tm.FuncType(), params, self._env, python)
         else:
             f = model.Fluent(name, self._tm.RealType(), params, self._env)
@@ -1358,18 +1341,8 @@ class HPDLReader:
 
         # TODO   DERIVED PREDICATES Hay que añadir problem.add_derived_predicate() y esto tendría que ser en una
         #       nueva subclase de HierarchicalProblem, que podríamos llamar HPDLProblem
-
-        # TODO  Las funciones pddl se gestionan y se añaden como un fluent especial "con un tipo real".
-        #       un fluent en el upfmodel es [name, type, signature], donde signature son los parámetros.
-        #       habría que
-        #               o bien cambiar la definición de la clase fluent en el upfmodel
-        #               o bien crear una subclase de HierarchicalProblem, que sea, HPDLProblem, CREO  que esto es lo ideal
-        #                 porque un HPDLProblem tiene los mismos atributos que un HierarchicalProblem, y un conjunto
-        #                 adicional como derived predicates y functions que se implementan con python.
-        # TODO AÑADIR la funcion problem.add_pythonfunction(f)
-        print(domain_res["functions"])
+        
         for f in domain_res.get("functions", []):
-            print(f)
             func = self._parse_function(f)
             self.problem.add_fluent(func)
 
