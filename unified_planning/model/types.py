@@ -204,18 +204,11 @@ class _RealType(Type):
 class _FuncType(Type):
     """Represents a Function type."""
 
-    def __init__(self): #, code: str = ""):
+    def __init__(self):
         Type.__init__(self)
-        # self._code = code
 
     def __repr__(self) -> str:
-        # print("CODE", self._code)
-        return "func"# + self._code
-
-    # @property
-    # def code(self) -> str:
-    #     """Returns the type's code."""
-    #     return self._code
+        return "func"
 
     def is_func_type(self) -> bool:
         return True
@@ -233,7 +226,7 @@ class TypeManager:
         self._ints: Dict[Tuple[Optional[int], Optional[int]], Type] = {}
         self._reals: Dict[Tuple[Optional[Fraction], Optional[Fraction]], Type] = {}
         self._user_types: Dict[Tuple[str, Optional[Type]], Type] = {}
-        self._func = FUNC # TODO: One or a dict?
+        self._func = FUNC
 
     def has_type(self, type: Type) -> bool:
         """

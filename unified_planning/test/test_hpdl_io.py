@@ -64,10 +64,10 @@ class TestHpdlIO(TestCase):
         # print("Task goals:", problem.task_network)
         # print(problem.actions)
         # print(problem.fluents)
-        for f in problem.fluents:
-            print(f)
-            if f.type.is_func_type():
-                print("GET CODE", f.code)
+        # for f in problem.fluents:
+        #     print(f)
+        #     if f.type.is_func_type():
+        #         print("GET CODE", f.code)
 
         self.assertEqual(24, len(problem.fluents)) # 14 functions + 10 predicates
         self.assertEqual(26, len(problem.actions)) # 14 actions + 12 inlines

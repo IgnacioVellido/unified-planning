@@ -97,9 +97,13 @@ class HPDLGrammar:
             + Suppress(")")
         )
 
+        # Python function
+        # Fails in curly brackets inside python_code, but as far as I know they
+        # are only used in dictionaries who were introduced in Python 3.7, which
+        # SIADEX does not support 
         python_code = (
             pyparsing.Regex('{(.|\n)*?}')
-        ) # Python function
+        )
 
         # Functions can specify -number type
         sec_functions = (
