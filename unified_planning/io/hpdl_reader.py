@@ -1339,7 +1339,7 @@ class HPDLReader:
 
             fluent = self._parse_exp({}, exp, {}, params) # Returns FNode
 
-            # TODO: Instead of adding fluents to problem, add to derived
+            # TODO: If class derived, add instead to it
             fluents.append(fluent)
             self.problem.add_fluent(fluent)
 
