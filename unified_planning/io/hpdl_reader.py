@@ -114,7 +114,6 @@ class HPDLGrammar:
         derived = Group(
             Suppress("(")
             + ":derived"
-            # + nestedExpr().setResultsName("pre")
             + predicate
             + nestedExpr().setResultsName("exp")
             + Suppress(")")
@@ -367,6 +366,9 @@ class HPDLReader:
         # inline_counter
         self.inline_version = 0
 
+        # Parsed derived Dict[str, List[FNode]]
+        self.derived = {}
+
     # Parses sub_expressions and calls add_effect
     def _add_effect(
         self,
@@ -438,20 +440,23 @@ class HPDLReader:
                 act.add_effect(*eff if timing is None else (timing, *eff))  # type: ignore
 
     # Checks (at start/end/overall) and calls _add_effect
-    def _add_condition(
+    def _parse_condition(
         self,
-        act: model.DurativeAction,
         exp: Union[ParseResults, str],
         types_map: Dict[str, model.Type],
         vars: typing.Optional[Dict[str, model.Variable]] = None,
     ):
         to_add = [(exp, vars)]
+        res = []
         while to_add:
             exp, vars = to_add.pop(0)
             op = exp[0]
             if op == "and":
                 for e in exp[1:]:
                     to_add.append((e, vars))
+            elif op in self.derived: # Check derived
+                for d in self.derived[op]:
+                    res.append((model.StartTiming(), d))
             elif op == "forall":
                 vars_string = " ".join(exp[1])
                 vars_res = self._pp_parameters.parseString(vars_string)
@@ -470,25 +475,27 @@ class HPDLReader:
                 cond = self._parse_exp({} if vars is None else vars, exp[2], {}, types_map)
                 if vars is not None:
                     cond = self._em.Forall(cond, *vars.values())
-                act.add_condition(model.StartTiming(), cond)
+                res.append((model.StartTiming(), cond))
             elif len(exp) == 3 and op == "at" and exp[1] == "end":
                 cond = self._parse_exp({} if vars is None else vars, exp[2], {}, types_map)
                 if vars is not None:
                     cond = self._em.Forall(cond, *vars.values())
-                act.add_condition(model.EndTiming(), cond)
+                res.append((model.EndTiming(), cond))
             elif len(exp) == 3 and op == "over" and exp[1] == "all":
                 t_all = model.OpenTimeInterval(model.StartTiming(), model.EndTiming())
                 cond = self._parse_exp({} if vars is None else vars, exp[2], {}, types_map)
                 if vars is not None:
                     cond = self._em.Forall(cond, *vars.values())
-                act.add_condition(t_all, cond)
+                res.append((t_all, cond))
             else:  # HPDL accept any exp, and considers (at start ...)
                 # vars = {} if vars is None else vars
                 cond = self._parse_exp({} if vars is None else vars, exp, {}, types_map)
                 # cond = self._parse_exp({} if vars is None else vars, exp, {}, types_map)
                 if vars is not None:
                     cond = self._em.Forall(cond, *vars.values())
-                act.add_condition(model.StartTiming(), cond)
+                res.append((model.StartTiming(), cond))
+        
+        return res
 
     # Checks (at start/end/overall) and calls _add_effect
     def _add_timed_effects(
@@ -704,6 +711,13 @@ class HPDLReader:
     ) -> model.FNode:
         if exp[0] == "?" and exp[1:] in var:  # variable in a quantifier expression
             return self._em.VariableExp(var[exp[1:]])
+        elif exp[0] in self.derived: # Check derived
+            res = []
+            for d in self.derived[exp[0]]:
+                res.append(d)
+
+            op: Callable = self._operators["and"]
+            return op(*res)
         elif exp in assignments:  # quantified assignment variable
             return self._em.ObjectExp(assignments[exp])
         elif exp[0] == "?":  # action parameter
@@ -741,6 +755,13 @@ class HPDLReader:
             for e in exp[1:]:
                 res.append((var, e, False))
             return None, res
+        elif exp[0] in self.derived: # Check derived and substitute
+            res = []
+            for d in self.derived[exp[0]]:
+                res.append(d)
+
+            op: Callable = self._operators["and"]
+            return op(*res), None # Returns the FNodes
         elif exp[0] in ["exists", "forall"]:  # quantifier operators
             vars_string = " ".join(exp[1])
             vars_res = self._pp_parameters.parseString(vars_string)
@@ -934,7 +955,9 @@ class HPDLReader:
             )
 
         # Add conditions to action
-        self._add_condition(dur_act, cond, params)
+        conditions = self._parse_condition(cond, params)
+        for c in conditions:
+            dur_act.add_condition(c[0], c[1])
 
         # Add each effect to action
         self._add_timed_effects(
@@ -1246,13 +1269,6 @@ class HPDLReader:
             parsed_pre = self._parse_exp({}, pre, {}, method_params)
             method_model.add_precondition(parsed_pre)
 
-        # TODO: Set order in model
-        # for ord_subs in m.get("tasks", []):
-        #     ord_subs = self._parse_subtasks(ord_subs, method, problem, types_map)
-        #     for s in ord_subs:
-        #         method.add_subtask(s)
-        #     method.set_ordered(*ord_subs)
-
         return method_model
 
     def _parse_subtask(
@@ -1306,11 +1322,11 @@ class HPDLReader:
 
     # _________________________________________________________
 
-    def _add_derived(
+    # Todo, check params in subexp
+    def _parse_derived(
         self,
         derived: OrderedDict
-    ):
-        # print("\nDerived", derived)
+    ) -> Dict[str, List[FNode]]:
 
         name = derived[1][0]
         params = self._parse_params(derived[1][1])
@@ -1322,15 +1338,13 @@ class HPDLReader:
             # fluent = self._parse_predicate(exp)
 
             fluent = self._parse_exp({}, exp, {}, params) # Returns FNode
-            # fluent = self._parse_effect(exp, True, None, {}, params) # Returns list of (Fnode, Fnode)
 
             # TODO: Instead of adding fluents to problem, add to derived
             fluents.append(fluent)
-            # self.problem.add_fluent(fluent)
+            self.problem.add_fluent(fluent)
 
-        # print(name, params, fluents)
         # return model.Derived(name, self._tm.BoolType(), params, self._env, fluents)
-        return None
+        return name,fluents
 
 
     def parse_problem(
@@ -1387,7 +1401,8 @@ class HPDLReader:
 
         # Must go after functions, as they can be used in derived
         for d in domain_res.get("derived", []):
-            self._add_derived(d)
+            name, fluents = self._parse_derived(d)
+            self.derived[name] = fluents
 
         # TODO Comprobar las constantes, que no deberían  dar problema
         for c in domain_res.get("constants", []):
