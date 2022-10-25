@@ -175,6 +175,7 @@ class HPDLGrammar:
             Suppress("(") + name.setResultsName("name") + parameters + Suppress(")")
         ).setResultsName("subtask")
 
+        # Subtask with time restriction
         time_rest_subt = Group(
             Suppress("(")
             + nestedExpr().setResultsName("time_exp")
@@ -1173,6 +1174,105 @@ class HPDLReader:
 
         return htn.Task(task_name, task_params)
 
+    def _parse_time_const(
+        self,
+        subtask,
+        exp
+    ):
+        # Build params as reals
+        # TODO: Include method params too
+        available_params = {
+            "start": self._tm.RealType(),
+            "end": self._tm.RealType(),
+            "dur": self._tm.RealType()
+        }
+        parsed_exp = self._parse_exp({}, exp, {}, available_params)
+        print(parsed_exp)
+        
+        # More than one exp
+        sub_exp = parsed_exp.args if parsed_exp.is_and() else [parsed_exp]
+
+        timings = []
+        for e in sub_exp:
+            # Get variable (start/end/dur) and restriction indexes
+            v_index, r_index = (0,1) if e.arg(0).is_parameter_exp() else (1,0)
+            var = e.arg(v_index).parameter().name
+            restriction = e.arg(r_index)
+
+            # Create restriction (start/end/dur)
+            if 'start' in var:
+                # Get index of start
+                # timings.append(
+                subtask.set_start_constraint(model.GlobalStartTiming(restriction))
+            elif 'end' in var:
+                subtask.set_end_constraint(model.GlobalEndTiming(restriction))
+            elif 'dur' in var:
+                print(e)
+                e_str = str(e) 
+
+                # timings.append(
+                #     model.DurationInterval()
+                # )
+
+                # Check open/close left/right
+                if "=" in e_str:
+                    subtask.set_duration_constraint(model.FixedDuration(restriction))
+                elif ">=" in e_str:
+                    pass
+                    # timings.append(model.ClosedDurationInterval(restriction, ??model.EndTiming??))
+                elif ">" in e_str:
+                    pass
+                elif "<=" in e_str:
+                    subtask.set_duration_constraint(model.ClosedDurationInterval(self._em.Int(0), restriction))
+                elif "<" in e_str:
+                    subtask.set_duration_constraint(model.LeftOpenDurationInterval(self._em.Int(0), restriction))
+                else:
+                    raise
+                #    timings.append(model.LeftDurationInterval())
+                    
+
+                # upper = None
+                # lower = None
+                # for j in range(1, len(duration)):
+                #     if duration[j][0] == ">=" and lower is None:
+                #         duration[j].pop(0)
+                #         duration[j].pop(0)
+                #         lower = self._parse_exp({}, duration[j], {}, params)
+                #     elif duration[j][0] == "<=" and upper is None:
+                #         duration[j].pop(0)
+                #         duration[j].pop(0)
+                #         upper = self._parse_exp({}, duration[j], {}, params)
+                #     else:
+                #         raise SyntaxError(
+                #             f"Not able to handle duration constraint of action {name}"
+                #         )
+                # # if lower is None or upper is None:
+                # #     raise SyntaxError(
+                # #         f"Not able to handle duration constraint of action {name}"
+                # #     )
+                # d = model.ClosedDurationInterval(lower, upper)
+                # # dur_act.set_duration_constraint(d)
+            else:
+                raise
+            # print(p)
+            # print(sub_exp)
+            # print(sub_exp.args)
+            # print(sub_exp.args[1].type)
+            # print(sub_exp.args[1].node_type)
+            # print(sub_exp.args[1].parameter().name)
+            # print(sub_exp.args[1] == start)
+            # print("start" in sub_exp.args)
+
+        # --------------------------------------------------
+
+        # Identify constrains for each param
+        # if start
+        #   set constraint (add that expression to Global... and return (to add to subtask))
+        # if end
+        # if dur
+        print(subtask)
+        # return timings
+
     def _parse_method(
         self,
         method: OrderedDict,
@@ -1193,10 +1293,11 @@ class HPDLReader:
                 time = subs.get("time_exp", None)
                 if time is not None:
                     print("Time constraint", time)
-                    # self._add_subtask_time()
-                    continue
-
-                subtask_model = self._parse_subtask(subs, method_params)
+                    subtask_model = self._parse_subtask(subs["subtask"], method_params)
+                    const = self._parse_time_const(subtask_model, time) # Add time constraint
+                else:
+                    # TODO: Clean
+                    subtask_model = self._parse_subtask(subs, method_params)
 
                 if subtask_model is not None:
                     # Add model to list
@@ -1526,6 +1627,7 @@ class HPDLReader:
                         self.problem.add_timed_effect(ti, va.arg(0), va.arg(1))
                     else:
                         raise SyntaxError(f"Not able to handle this TIL {i}")
+                # TODO: Add end/between
                 else:
                     self.problem.set_initial_value(
                         self._parse_exp({}, i),
@@ -1533,7 +1635,6 @@ class HPDLReader:
                     )
 
             # HPDL task-goal is the equivalent of HDDL htn tasks
-            # TODO: Add ordering to task_network
             tasknet = problem_res.get("goal", None)
             if tasknet is not None:
                 subtasks, _ = self._parse_method(
