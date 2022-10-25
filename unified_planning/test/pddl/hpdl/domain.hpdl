@@ -25,8 +25,9 @@
                 ; (at ?x - (either person aircraft) ?c - city)
                 (in ?p - person ?a - aircraft)
 
-                (different ?x ?y) (equal ?x ?y)
-
+                (equal ?x ?y)
+                (different ?x ?y)
+                 
                 (hay-fuel-lento ?a ?c1 ?c2)
                 (hay-fuel-rapido ?a ?c1 ?c2)
                 (no-sobrepasado-fuel-lento ?a ?c1 ?c2)

@@ -26,6 +26,7 @@ from pyparsing import (
 from unified_planning import model
 from unified_planning.environment import Environment, get_env
 from unified_planning.exceptions import UPUsageError
+from unified_planning.io.hpdl import HPDLGrammar
 from unified_planning.model import FNode, expression, problem
 from unified_planning.model.expression import Expression
 
@@ -35,294 +36,6 @@ if pyparsing.__version__ < "3.0.0":
 else:
     from pyparsing import one_of
     from pyparsing.results import ParseResults
-
-
-class HPDLGrammar:
-    def __init__(self):
-        name = Word(alphas, alphanums + "_" + "-")
-        number = Word(nums + "." + "-")
-
-        # To define subtypes
-        # obj1 obj2 - parent
-        name_list = Group(Group(OneOrMore(name)) + Optional(Suppress("-") + name))
-
-        variable = Optional(Suppress("?")) + name   # Optional for goals
-        typed_variables = Group(
-            Group(OneOrMore(variable)).setResultsName("variables")
-            + Optional(Suppress("-") + name).setResultsName("type")
-        )
-
-        # Group of one or more variable and optionally their type
-        parameters = Group(ZeroOrMore(typed_variables)).setResultsName("params")
-
-        # Any predicate with/without parameters
-        predicate = (
-            Suppress("(")
-            + Group(name.setResultsName("name") + parameters)
-            + Suppress(")")
-        )
-
-        # ----------------------------------------------------------
-        # Sections
-        sec_requirements = (
-            Suppress("(")
-            + ":requirements"
-            + OneOrMore(
-                one_of(
-                    ":strips :typing :negative-preconditions :disjunctive-preconditions :equality :existential-preconditions :universal-preconditions :quantified-preconditions :conditional-effects :fluents :numeric-fluents :adl :durative-actions :duration-inequalities :timed-initial-literals :action-costs :hierarchy :htn-expansion :metatags :derived-predicates :negative-preconditions"
-                )
-            )
-            + Suppress(")")
-        )
-
-        sec_types = (
-            Suppress("(")
-            + ":types"
-            + OneOrMore(name_list).setResultsName("types")
-            + Suppress(")")
-        )
-
-        # Same as sec_types
-        sec_constants = (
-            Suppress("(")
-            + ":constants"
-            # + Optional(
-            + OneOrMore(name_list).setResultsName("constants")
-            # )
-            + Suppress(")")
-        )
-
-        sec_predicates = (
-            Suppress("(")
-            + ":predicates"
-            + Group(OneOrMore(predicate)).setResultsName("predicates")
-            + Suppress(")")
-        )
-
-        # Functions can specify -number type
-        sec_functions = (
-            Suppress("(")
-            + ":functions"
-            + Group(
-                OneOrMore(predicate + Optional(Suppress("- number")))
-            ).setResultsName("functions")
-            + Suppress(")")
-        )
-
-        # derived evaluates a logical expression with given arguments
-        # planner changes occurrences of "pre" with "exp"
-        derived = Group(
-            Suppress("(")
-            + ":derived"
-            + predicate
-            + nestedExpr().setResultsName("exp")
-            + Suppress(")")
-        )
-
-        # ----------------------------------------------------------
-        # Actions
-
-        action = Group(
-            Suppress("(")
-            + ":action"
-            + name.setResultsName("name")
-            + ":parameters"
-            + Suppress("(")
-            + parameters
-            + Suppress(")")
-            + Optional(":precondition" + nestedExpr().setResultsName("pre"))
-            + Optional(":effect" + nestedExpr().setResultsName("eff"))
-            + Suppress(")")
-        )
-
-        dur_action = Group(
-            Suppress("(")
-            + ":durative-action"
-            + name.setResultsName("name")
-            + ":parameters"
-            + Suppress("(")
-            + parameters
-            + Suppress(")")
-            + ":duration"
-            + nestedExpr().setResultsName("duration")
-            + ":condition"
-            + nestedExpr().setResultsName("pre") # CHANGED: PDDLReader uses "cond"
-            + ":effect"
-            + nestedExpr().setResultsName("eff")
-            + Suppress(")")
-        )
-
-        # ----------------------------------------------------------
-
-        # TODO: Extend to other tags
-        tag_def = Group(
-            Suppress("(") + ":tag" + "prettyprint" + QuotedString('"') + Suppress(")")
-        ).setResultsName("inline")
-
-        # ----------------------------------------------------------
-        # HTN
-
-        # nestedExpr in case we missed something
-        inline_def = Group(
-            Suppress("(")
-            + ":inline"
-            + nestedExpr().setResultsName("cond")
-            + nestedExpr().setResultsName("eff")
-            + Suppress(")")
-        ).setResultsName("inline")
-
-        subtask_def = Group(
-            Suppress("(") + name.setResultsName("name") + parameters + Suppress(")")
-        ).setResultsName("subtask")
-
-        time_rest_subt = Group(
-            Suppress("(")
-            + nestedExpr().setResultsName("time_exp")
-            + subtask_def
-            + Suppress(")")
-        )
-
-        method = Group(
-            Suppress("(")
-            + ":method"
-            + name.setResultsName("name")
-            + ":precondition"
-            + nestedExpr().setResultsName("pre")
-            # TODO: Set order
-            + Optional(":meta" + Suppress("(") + OneOrMore(tag_def) + Suppress(")"))
-            + ":tasks"
-            + Suppress("(")
-            + Group(
-                ZeroOrMore(
-                    Group(
-                        # Ordering is defined with [] or ()
-                        Optional("[", default="(").setResultsName("ordering")
-                        + OneOrMore(inline_def | subtask_def | time_rest_subt)
-                        + Suppress(Optional("]"))
-                    )
-                )
-            ).setResultsName("subtasks")
-            # + Group(ZeroOrMore(inline_def | subtask_def)).setResultsName("subtasks")
-            + Suppress(")")
-            + Suppress(")")
-        )
-
-        task = Group(
-            Suppress("(")
-            + ":task"
-            + name.setResultsName("name")
-            + ":parameters"
-            + Suppress("(")
-            + parameters
-            + Suppress(")")
-            + Group(OneOrMore(method)).setResultsName("methods")
-            + Suppress(")")
-        )
-
-        # ----------------------------------------------------------
-
-        domain = (
-            Suppress("(")
-            + "define"
-            + Suppress("(")
-            + "domain"
-            + name.setResultsName("name")
-            + Suppress(")")
-            + Optional(sec_requirements).setResultsName("features")
-            + Optional(sec_types)
-            + Optional(sec_constants)
-            + Optional(sec_predicates)
-            + Optional(sec_functions)
-            + Group(ZeroOrMore(derived)).setResultsName("derived")
-            + Group(ZeroOrMore(task)).setResultsName("tasks")
-            + Group(ZeroOrMore(action | dur_action)).setResultsName("actions")
-            + Suppress(")")
-        )
-
-        # ----------------------------------------------------------
-
-        objects = OneOrMore(
-            Group(Group(OneOrMore(name)) + Optional(Suppress("-") + name))
-        ).setResultsName("objects")
-
-        # htn_def = Group(
-        #     Suppress("(")
-        #     + ":htn"
-        #     + Optional(":tasks" + nestedExpr().setResultsName("tasks"))
-        #     + Optional(":ordering" + nestedExpr().setResultsName("ordering"))
-        #     + Optional(":constraints" + nestedExpr().setResultsName("constraints"))
-        #     + Suppress(")")
-        # )
-
-        metric = (Keyword("minimize") | Keyword("maximize")).setResultsName(
-            "optimization"
-        ) + (name | nestedExpr()).setResultsName("metric")
-
-        goal = Group(
-            Suppress("(")
-            + ":tasks-goal"
-            + ":tasks"
-            + Suppress("(")
-            # TODO: Almost the same as in method, refactor
-            + Group(
-                ZeroOrMore(
-                    Group(
-                        # Ordering is defined with [] or ()
-                        Optional("[", default="(").setResultsName("ordering")
-                        + OneOrMore(subtask_def)
-                        + Suppress(Optional("]"))
-                    )
-                )
-            ).setResultsName("subtasks")
-            # + Group(OneOrMore(subtask_def)).setResultsName("subtasks")
-            + Suppress(")")
-            + Suppress(")")
-        )
-
-        # ----------------------------------------------------------
-
-        problem = (
-            Suppress("(")
-            + "define"
-            + Suppress("(")
-            + "problem"
-            + name.setResultsName("name")
-            + Suppress(")")
-            + Suppress("(")
-            + ":domain"
-            + name
-            + Suppress(")")
-            + Optional(sec_requirements)
-            + Optional(Suppress("(") + ":objects" + objects + Suppress(")"))
-            + Suppress("(")
-            + ":init"
-            + ZeroOrMore(nestedExpr()).setResultsName("init")
-            + Suppress(")")
-            + Optional(goal.setResultsName("goal")) # TODO: It isn't optional in HPDL, right?
-            + Optional(Suppress("(") + ":metric" + metric + Suppress(")"))
-            + Suppress(")")
-        )
-
-        # ----------------------------------------------------------
-
-        domain.ignore(";" + restOfLine)
-        problem.ignore(";" + restOfLine)
-
-        self._domain = domain
-        self._problem = problem
-        self._parameters = parameters
-
-    @property
-    def domain(self):
-        return self._domain
-
-    @property
-    def problem(self):
-        return self._problem
-
-    @property
-    def parameters(self):
-        return self._parameters
 
 
 class HPDLReader:
@@ -356,7 +69,6 @@ class HPDLReader:
         self._fve = self._env.free_vars_extractor
         self._totalcost: typing.Optional[model.FNode] = None
 
-        # Refactor properties:
         self.problem: model.Problem = None
         self.types_map: Dict[str, "model.Type"] = {}
         self.object_type_needed: bool = False
@@ -365,7 +77,6 @@ class HPDLReader:
 
         # inline_counter
         self.inline_version = 0
-
         # Parsed derived Dict[str, List[FNode]]
         self.derived = {}
 
@@ -454,7 +165,7 @@ class HPDLReader:
             if op == "and":
                 for e in exp[1:]:
                     to_add.append((e, vars))
-            elif op in self.derived: # Check derived
+            elif op in self.derived:  # Check derived
                 for d in self.derived[op]:
                     res.append((model.StartTiming(), d))
             elif op == "forall":
@@ -462,8 +173,7 @@ class HPDLReader:
                 vars_res = self._pp_parameters.parseString(vars_string)
                 if vars is None:
                     vars = {}
-                # print(self.types_map)
-                # print(types_map)
+
                 for g in vars_res["params"]:
                     # TODO: Check this
                     # t = types_map[g[1] if len(g) > 1 else "object"]
@@ -472,18 +182,24 @@ class HPDLReader:
                         vars[o] = up.model.Variable(o, t, self._env)
                 to_add.append((exp[2], vars))
             elif len(exp) == 3 and op == "at" and exp[1] == "start":
-                cond = self._parse_exp({} if vars is None else vars, exp[2], {}, types_map)
+                cond = self._parse_exp(
+                    {} if vars is None else vars, exp[2], {}, types_map
+                )
                 if vars is not None:
                     cond = self._em.Forall(cond, *vars.values())
                 res.append((model.StartTiming(), cond))
             elif len(exp) == 3 and op == "at" and exp[1] == "end":
-                cond = self._parse_exp({} if vars is None else vars, exp[2], {}, types_map)
+                cond = self._parse_exp(
+                    {} if vars is None else vars, exp[2], {}, types_map
+                )
                 if vars is not None:
                     cond = self._em.Forall(cond, *vars.values())
                 res.append((model.EndTiming(), cond))
             elif len(exp) == 3 and op == "over" and exp[1] == "all":
                 t_all = model.OpenTimeInterval(model.StartTiming(), model.EndTiming())
-                cond = self._parse_exp({} if vars is None else vars, exp[2], {}, types_map)
+                cond = self._parse_exp(
+                    {} if vars is None else vars, exp[2], {}, types_map
+                )
                 if vars is not None:
                     cond = self._em.Forall(cond, *vars.values())
                 res.append((t_all, cond))
@@ -494,7 +210,7 @@ class HPDLReader:
                 if vars is not None:
                     cond = self._em.Forall(cond, *vars.values())
                 res.append((model.StartTiming(), cond))
-        
+
         return res
 
     # Checks (at start/end/overall) and calls _add_effect
@@ -624,7 +340,6 @@ class HPDLReader:
                 return False
         return True
 
-    # TODO: Here start the refactoring of the code
     def _build_problem(self, name: str, features: List[str]) -> model.Problem:
         features = set(features)
         if ":hierarchy" in features or ":htn-expansion" in features:
@@ -634,11 +349,12 @@ class HPDLReader:
                 initial_defaults={self._tm.BoolType(): self._em.FALSE()},
             )
 
-        return model.Problem(
-            name,
-            self._env,
-            initial_defaults={self._tm.BoolType(): self._em.FALSE()},
-        )
+        raise Exception("HPDLReader: Wrong reader, use PDDL instead")
+        # return model.Problem(
+        #     name,
+        #     self._env,
+        #     initial_defaults={self._tm.BoolType(): self._em.FALSE()},
+        # )
 
     def _parse_types(self, types_list: List[str]):
         """Parses a type from the domain"""
@@ -711,7 +427,7 @@ class HPDLReader:
     ) -> model.FNode:
         if exp[0] == "?" and exp[1:] in var:  # variable in a quantifier expression
             return self._em.VariableExp(var[exp[1:]])
-        elif exp[0] in self.derived: # Check derived
+        elif exp[0] in self.derived:  # Check derived
             res = []
             for d in self.derived[exp[0]]:
                 res.append(d)
@@ -755,13 +471,13 @@ class HPDLReader:
             for e in exp[1:]:
                 res.append((var, e, False))
             return None, res
-        elif exp[0] in self.derived: # Check derived and substitute
+        elif exp[0] in self.derived:  # Check derived and substitute
             res = []
             for d in self.derived[exp[0]]:
                 res.append(d)
 
             op: Callable = self._operators["and"]
-            return op(*res), None # Returns the FNodes
+            return op(*res), None  # Returns the FNodes
         elif exp[0] in ["exists", "forall"]:  # quantifier operators
             vars_string = " ".join(exp[1])
             vars_res = self._pp_parameters.parseString(vars_string)
@@ -814,7 +530,11 @@ class HPDLReader:
                 elif self.problem.has_fluent(exp[0]):  # fluent reference
                     f = self.problem.fluent(exp[0])
                     # In object is declared in the exp do not pop for the (- object)
-                    args = [solved.pop() for e in exp[1:] if e != "-" and not self.problem.has_type(e)]
+                    args = [
+                        solved.pop()
+                        for e in exp[1:]
+                        if e != "-" and not self.problem.has_type(e)
+                    ]
                     solved.append(self._em.FluentExp(f, tuple(args)))
                 elif exp[0] in assignments:  # quantified assignment variable
                     assert len(exp) == 1
@@ -924,9 +644,7 @@ class HPDLReader:
         if duration[0] == "=":
             duration.pop(0)
             duration.pop(0)
-            dur_act.set_fixed_duration(
-                self._parse_exp({}, duration, {}, params)
-            )
+            dur_act.set_fixed_duration(self._parse_exp({}, duration, {}, params))
         elif duration[0] == "and":
             upper = None
             lower = None
@@ -1037,7 +755,7 @@ class HPDLReader:
 
         if "pre" in action:
             res["pre"] = self._parse_exp({}, action["pre"][0], {}, a_params)
-        else: # "pre" always exist, although it might be empty
+        else:  # "pre" always exist, although it might be empty
             res["pre"] = []
 
         if "eff" in action:
@@ -1051,18 +769,15 @@ class HPDLReader:
         self,
         inline,
         # method_name: str,
-        method_params: OrderedDict # Task and pre params of method
+        method_params: OrderedDict,  # Task and pre params of method
     ) -> model.Action:
         inline_version = 0
         # inline_name = (method_name or "") + "_inline"
         inline_name = "inline"
 
         # Find the first available name for the inline task
-        # TODO: this is not very efficient; improve it
         inline_version = self.inline_version
         self.inline_version += 1
-        # while self.problem.has_action(f"{inline_name}_{inline_version}"):
-        #     inline_version += 1
 
         res = OrderedDict()
 
@@ -1080,18 +795,17 @@ class HPDLReader:
         res["params"] = method_params
         res["params"].update(cond_params)
         res["params"].update(eff_params)
+        res["cond"] = []
+        res["eff"] = []
 
         # Parse conditions and effects
         if "cond" in inline:
             res["cond"] = self._parse_exp({}, inline["cond"][0], {}, res["params"])
-        else:
-            res["cond"] = []
 
         if "eff" in inline:
-            res["eff"] = self._parse_effect(inline["eff"][0], True, None, {}, res["params"])
-        else:
-            res["eff"] = []
-
+            res["eff"] = self._parse_effect(
+                inline["eff"][0], True, None, {}, res["params"]
+            )
 
         # Build action
         action_model = self._build_action(
@@ -1102,9 +816,8 @@ class HPDLReader:
             res["durative"],
             res["duration"],
         )
-        
+
         # Add inline to the problem
-        # TODO: New class Inline?
         self.problem.add_action(action_model)
 
         # Return subtask
@@ -1141,7 +854,7 @@ class HPDLReader:
 
         def parse_type(type: str):
             if type in self.types_map:
-                return self.types_map[type] # Must return the object, not the str
+                return self.types_map[type]  # Must return the object, not the str
             else:
                 raise ValueError(f"Type {type} not defined")
 
@@ -1156,13 +869,13 @@ class HPDLReader:
                 ):  # type is specified, check it
                     res_params[params[i][1:]] = parse_type(params[i + 2])
                     i += 3
-                else:   # Not type specified, ignore
+                else:  # Not type specified, ignore
                     i += 1
                     # In case we sometime need to get non-specified params,
                     # change line above
-            
-            else: # Not a param, ignore
-                    i += 1
+
+            else:  # Not a param, ignore
+                i += 1
 
         return res_params
 
@@ -1179,15 +892,15 @@ class HPDLReader:
     def _parse_method(
         self,
         method: OrderedDict,
-        method_params: OrderedDict # Task and pre params of method
+        method_params: OrderedDict,  # Task and pre params of method
     ):
         # Parse subtasks
-        ordered_subtasks = [] # List of tuple (order, list(subtask))
+        ordered_subtasks = []  # List of tuple (order, list(subtask))
         subtasks_params = []
 
         # Get ordered subtasks
         for ordering in method.get("subtasks", []):
-            subtasks = []   # List of model.Subtask
+            subtasks = []  # List of model.Subtask
             order = ordering.get("ordering", "(")
 
             # ordering[0] is the order tag, rest are subtasks definitions
@@ -1195,7 +908,7 @@ class HPDLReader:
                 # TODO: Check and impose time restrictions
                 time = subs.get("time_exp", None)
                 if time is not None:
-                    print("Time constraint", time)
+                    # print("Time constraint", time)
                     # self._add_subtask_time()
                     continue
 
@@ -1255,14 +968,14 @@ class HPDLReader:
             if ordering[0] == "(":
                 method_model.set_ordered(*ordering[1])
 
-        # All subtasks from the next iteration have sequential order with 
+        # All subtasks from the next iteration have sequential order with
         # respect to the previous iteration
         if len(subtasks) >= 2:
             for i in range(1, len(subtasks)):
                 # Loop through subtasks of previous ordering
-                for s1 in subtasks[i-1][1]:
+                for s1 in subtasks[i - 1][1]:
                     for s2 in subtasks[i][1]:
-                        method_model.set_ordered(s1,s2)      
+                        method_model.set_ordered(s1, s2)
 
         # Add preconditions to model
         for pre in method_preconditions:
@@ -1274,7 +987,7 @@ class HPDLReader:
     def _parse_subtask(
         self,
         subtask: OrderedDict,
-        method_params: OrderedDict # Task and pre params of method
+        method_params: OrderedDict,  # Task and pre params of method
     ):
         if "cond" in subtask.keys():  # == inline
             return self._parse_inline(subtask, method_params)
@@ -1313,8 +1026,7 @@ class HPDLReader:
 
         # 3: Parse exp adding ? to each variable (somehow without ? it fails)
         parameters = [
-            self._parse_exp({}, "?" + str(param), {}, params)
-            for param in subt_params
+            self._parse_exp({}, "?" + str(param), {}, params) for param in subt_params
         ]
 
         # Create and return Subtask
@@ -1323,29 +1035,25 @@ class HPDLReader:
     # _________________________________________________________
 
     # Todo, check params in subexp
-    def _parse_derived(
-        self,
-        derived: OrderedDict
-    ) -> Dict[str, List[FNode]]:
+    def _parse_derived(self, derived: OrderedDict) -> Dict[str, List[FNode]]:
 
         name = derived[1][0]
         params = self._parse_params(derived[1][1])
 
         fluents = []
-        for exp in derived.get("exp", None): # Add fluents
+        for exp in derived.get("exp", None):  # Add fluents
             # TODO: parse_predicate or parse_exp
             # parse_predicate fails with operations like "<"
             # fluent = self._parse_predicate(exp)
 
-            fluent = self._parse_exp({}, exp, {}, params) # Returns FNode
+            fluent = self._parse_exp({}, exp, {}, params)  # Returns FNode
 
             # TODO: If class derived, add instead to it
             fluents.append(fluent)
             self.problem.add_fluent(fluent)
 
         # return model.Derived(name, self._tm.BoolType(), params, self._env, fluents)
-        return name,fluents
-
+        return name, fluents
 
     def parse_problem(
         self, domain_filename: str, problem_filename: typing.Optional[str] = None
@@ -1363,8 +1071,6 @@ class HPDLReader:
         """
         domain_res = self._pp_domain.parseFile(domain_filename)
 
-        # TODO Pensar si necesitamos distinguir en "features" que estamos parseando HPDL
-        # Init properties of the problem
         self.problem = self._build_problem(domain_res["name"], domain_res["features"])
         self.types_map: Dict[str, "model.Type"] = {}
         self.object_type_needed: bool = self._check_if_object_type_is_needed(domain_res)
@@ -1404,7 +1110,6 @@ class HPDLReader:
             name, fluents = self._parse_derived(d)
             self.derived[name] = fluents
 
-        # TODO Comprobar las constantes, que no deberían  dar problema
         for c in domain_res.get("constants", []):
             objects = self._parse_constant(c)
             for o in objects:
@@ -1433,7 +1138,7 @@ class HPDLReader:
                     self._parse_params(a["params"]),
                     a["duration"][0],
                     a["pre"][0],
-                    a["eff"][0]
+                    a["eff"][0],
                 )
                 self.problem.add_action(action_model)
 
@@ -1472,7 +1177,7 @@ class HPDLReader:
                         for o in g[0]:
                             var_names.append(f"?{o}")
                             var_types.append(t)
-                    
+
                     # for each variable type, get all the objects of that type and calculate the cartesian
                     # product between all the given objects and iterate over them, changing the variable assignments
                     # in the added effect
@@ -1493,10 +1198,12 @@ class HPDLReader:
                             )
                         elif isinstance(action, model.DurativeAction):
                             # TODO: There should be another way for this
-                            # Create dict with params and its types 
-                            # Can't use action._parameters as it returns 
+                            # Create dict with params and its types
+                            # Can't use action._parameters as it returns
                             # .Parameter instead of ._UserType
-                            params = OrderedDict([(k, v.type) for k,v in action._parameters.items()])
+                            params = OrderedDict(
+                                [(k, v.type) for k, v in action._parameters.items()]
+                            )
 
                             self._add_timed_effects(
                                 self.problem,
@@ -1510,7 +1217,7 @@ class HPDLReader:
                             raise NotImplementedError
 
             # TODO: customization (time format/start/horizon/unit)
-            
+
             for i in problem_res.get("init", []):
                 if i[0] == "=":
                     self.problem.set_initial_value(
@@ -1540,9 +1247,7 @@ class HPDLReader:
             # TODO: Add ordering to task_network
             tasknet = problem_res.get("goal", None)
             if tasknet is not None:
-                subtasks, _ = self._parse_method(
-                    tasknet, self.types_map
-                )
+                subtasks, _ = self._parse_method(tasknet, self.types_map)
 
                 # Add subtasks to task_network
                 for ordering in subtasks:
@@ -1552,15 +1257,14 @@ class HPDLReader:
                     if ordering[0] == "(":
                         self.problem.task_network.set_ordered(*ordering[1])
 
-                # All subtasks from the next iteration have sequential order with 
+                # All subtasks from the next iteration have sequential order with
                 # respect to the previous iteration
                 if len(ordering) >= 2:
                     for i in range(1, len(subtasks)):
                         # Loop through subtasks of previous ordering
-                        for s1 in subtasks[i-1][1]:
+                        for s1 in subtasks[i - 1][1]:
                             for s2 in subtasks[i][1]:
-                                self.problem.task_network.set_ordered(s1,s2)      
-
+                                self.problem.task_network.set_ordered(s1, s2)
 
             self.has_actions_cost = (
                 self.has_actions_cost and self._problem_has_actions_cost(self.problem)
