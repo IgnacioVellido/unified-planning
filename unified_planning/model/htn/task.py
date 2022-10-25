@@ -116,11 +116,29 @@ class Subtask:
             _task_id_counter += 1
             self._ident = f"_t{_task_id_counter}"
         self._args = self._env.expression_manager.auto_promote(*args)
+
+        # TODO: Time restrictions
+        self._duration: "up.model.timing.DurationInterval" = (
+            up.model.timing.FixedDuration(self._env.expression_manager.Int(0))
+        )
+        self._start: "up.model.timing.Timepoint" = (
+            Timepoint(TimepointKind.START, container=self.identifier)
+        )
+        self._end: "up.model.timing.Timepoint" = (
+            Timepoint(TimepointKind.END, container=self.identifier)
+        )
         assert len(self._args) == len(self._task.parameters)
 
     def __repr__(self):
+        s = []
         params = ", ".join([str(a) for a in self._args])
-        return f"{self.identifier}: {self._task.name}({params})"
+        s.append(f"{self.identifier}: {self._task.name}({params})")
+        s.append(" {\n")
+        s.append(f"  start = {str(self._start)}\n")
+        s.append(f"  end = {str(self._end)}\n")
+        s.append(f"  duration = {str(self._duration)}\n")
+        s.append("  }")
+        return "".join(s)
 
     def __eq__(self, other):
         if not isinstance(other, Subtask):
@@ -150,10 +168,37 @@ class Subtask:
 
     @property
     def start(self) -> Timepoint:
-        """Timepoint representing the task's end time."""
-        return Timepoint(TimepointKind.START, container=self.identifier)
+        """Timepoint representing the task's start time."""
+        return self._start
 
     @property
     def end(self) -> Timepoint:
         """Timepoint representing the task's end time."""
-        return Timepoint(TimepointKind.END, container=self.identifier)
+        return self._end
+
+    def set_start_constraint(self, start: "up.model.timing.GlobalStartTiming"):
+        """
+        Sets the `start point` for this `action`.
+
+        :param start: The new `start point` of this `action`.
+        """
+        # TODO: Make any needed verification
+        self._start = start
+
+    def set_end_constraint(self, end: "up.model.timing.GlobalStartTiming"):
+        """
+        Sets the `start point` for this `action`.
+
+        :param start: The new `start point` of this `action`.
+        """
+        # TODO: Make any needed verification
+        self._end = end
+
+    def set_duration_constraint(self, duration: "up.model.timing.DurationInterval"):
+        """
+        Sets the `duration interval` for this `action`.
+
+        :param duration: The new `duration interval` of this `action`.
+        """
+        # TODO: Make any needed verification
+        self._duration = duration
