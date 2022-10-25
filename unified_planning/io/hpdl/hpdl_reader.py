@@ -1034,7 +1034,8 @@ class HPDLReader:
 
     # _________________________________________________________
 
-    # Todo, check params in subexp
+    # NOTE: Derived are declared in :predicates, so no need to add
+    # fluent to problem here, they are already in there
     def _parse_derived(self, derived: OrderedDict) -> Dict[str, List[FNode]]:
 
         name = derived[1][0]
@@ -1047,13 +1048,12 @@ class HPDLReader:
             # fluent = self._parse_predicate(exp)
 
             fluent = self._parse_exp({}, exp, {}, params)  # Returns FNode
-
-            # TODO: If class derived, add instead to it
             fluents.append(fluent)
-            self.problem.add_fluent(fluent)
+
+        # TODO: Add to derived dict here instead of outside
+        self.derived[name] = fluents
 
         # return model.Derived(name, self._tm.BoolType(), params, self._env, fluents)
-        return name, fluents
 
     def parse_problem(
         self, domain_filename: str, problem_filename: typing.Optional[str] = None
@@ -1107,8 +1107,7 @@ class HPDLReader:
 
         # Must go after functions, as they can be used in derived
         for d in domain_res.get("derived", []):
-            name, fluents = self._parse_derived(d)
-            self.derived[name] = fluents
+            self._parse_derived(d)
 
         for c in domain_res.get("constants", []):
             objects = self._parse_constant(c)
