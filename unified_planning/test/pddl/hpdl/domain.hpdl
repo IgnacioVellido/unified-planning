@@ -137,14 +137,22 @@
               
       :tasks (
               ; (embarcar-pasajeros ?a ?c1 ?c)
+              ; (mover-avion ?a ?c1 ?c)
+              ; (desembarcar-pasajeros ?a ?c)
               ; Testing time management
               (
                 (and (>= ?start 25) (< ?dur 3))
                 (embarcar-pasajeros ?a ?c1 ?c)
               )
 
-              (mover-avion ?a ?c1 ?c)
-              (desembarcar-pasajeros ?a ?c)
+              (
+                (= ?end 40)
+                (mover-avion ?a ?c1 ?c)
+              )
+              (
+                (= ?dur 5)
+                (desembarcar-pasajeros ?a ?c)
+              )
             )
     )
 
@@ -395,6 +403,7 @@
 (:durative-action refuel
  :parameters (?a - aircraft ?c - city)
  :duration (= ?duration (/ (- (capacity ?a) (fuel ?a)) (refuel-rate ?a)))
+;TODO: This can't be done?  :duration (> ?duration 3)
  :condition (and  (> (capacity ?a) (fuel ?a))
                  (over all (at ?a ?c))) ; (over all) here only for testing
  :effect (assign (fuel ?a) (capacity ?a)))
