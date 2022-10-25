@@ -92,7 +92,7 @@ class Timepoint:
         """Returns the `container` in which this `Timepoint` is defined or `None` if it refers to the enclosing `action/method`."""
         return self._container
 
-
+# TODO: Change delay to Union[int,Fraction,FNode]
 class Timing:
     """
     Class that used a :class:`~unified_planning.model.Timepoint` to define from when this `Timing` is considered and a :func:`delay <unified_planning.model.Timing.delay>`,
@@ -101,7 +101,7 @@ class Timing:
     A `GLOBAL_START Timepoint` with a `delay` of `5` means `5` units of time after the start of the `Plan`.
     """
 
-    def __init__(self, delay: Union[int, Fraction], timepoint: Timepoint):
+    def __init__(self, delay: Union[int, Fraction, FNode], timepoint: Timepoint):
         self._timepoint = timepoint
         self._delay = delay
 
@@ -153,7 +153,7 @@ class Timing:
 
 
 def StartTiming(
-    delay: Union[int, Fraction] = 0, container: Optional[str] = None
+    delay: Union[int, Fraction, FNode] = 0, container: Optional[str] = None
 ) -> Timing:
     """
     Returns the start timing of an :class:`~unified_planning.model.Action`.
@@ -174,7 +174,7 @@ def StartTiming(
 
 
 def EndTiming(
-    delay: Union[int, Fraction] = 0, container: Optional[str] = None
+    delay: Union[int, Fraction, FNode] = 0, container: Optional[str] = None
 ) -> Timing:
     """
     Returns the end timing of an :class:`~unified_planning.model.Action`.
@@ -194,7 +194,7 @@ def EndTiming(
     return Timing(delay, Timepoint(TimepointKind.END, container=container))
 
 
-def GlobalStartTiming(delay: Union[int, Fraction] = 0):
+def GlobalStartTiming(delay: Union[int, Fraction, FNode] = 0):
     """
     Represents the absolute `Timing`.
     Created with a delay > 0 represents `delay` time
@@ -207,7 +207,7 @@ def GlobalStartTiming(delay: Union[int, Fraction] = 0):
     return Timing(delay, Timepoint(TimepointKind.GLOBAL_START))
 
 
-def GlobalEndTiming(delay: Union[int, Fraction] = 0):
+def GlobalEndTiming(delay: Union[int, Fraction, FNode] = 0):
     """
     Represents the end `Timing` of an execution.
     Created with a delay > 0 represents "delay" time
