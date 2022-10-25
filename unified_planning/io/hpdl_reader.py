@@ -1058,11 +1058,8 @@ class HPDLReader:
         inline_name = "inline"
 
         # Find the first available name for the inline task
-        # TODO: this is not very efficient; improve it
         inline_version = self.inline_version
         self.inline_version += 1
-        # while self.problem.has_action(f"{inline_name}_{inline_version}"):
-        #     inline_version += 1
 
         res = OrderedDict()
 
@@ -1322,7 +1319,8 @@ class HPDLReader:
 
     # _________________________________________________________
 
-    # Todo, check params in subexp
+    # NOTE: Derived are declared in :predicates, so no need to add
+    # fluent to problem here, they are already in there
     def _parse_derived(
         self,
         derived: OrderedDict
@@ -1338,13 +1336,12 @@ class HPDLReader:
             # fluent = self._parse_predicate(exp)
 
             fluent = self._parse_exp({}, exp, {}, params) # Returns FNode
-
-            # TODO: If class derived, add instead to it
             fluents.append(fluent)
-            self.problem.add_fluent(fluent)
+
+        # TODO: Add to derived dict here instead of outside
+        self.derived[name] = fluents
 
         # return model.Derived(name, self._tm.BoolType(), params, self._env, fluents)
-        return name,fluents
 
 
     def parse_problem(
@@ -1401,8 +1398,7 @@ class HPDLReader:
 
         # Must go after functions, as they can be used in derived
         for d in domain_res.get("derived", []):
-            name, fluents = self._parse_derived(d)
-            self.derived[name] = fluents
+            self._parse_derived(d)
 
         # TODO Comprobar las constantes, que no deberían  dar problema
         for c in domain_res.get("constants", []):

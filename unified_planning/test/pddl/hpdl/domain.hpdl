@@ -25,7 +25,9 @@
                 ; (at ?x - (either person aircraft) ?c - city)
                 (in ?p - person ?a - aircraft)
 
-                (different ?x ?y) (equal ?x ?y)
+                (different ?x ?y) 
+                (equal ?x ?y)
+                (otro ?x ?x)
 
                 (hay-fuel-lento ?a ?c1 ?c2)
                 (hay-fuel-rapido ?a ?c1 ?c2)
@@ -68,6 +70,15 @@
   ;; El consecuente "vacío" se representa como "()" y significa "siempre verdad"
   (:derived
     (equal ?x ?x) ()
+  )
+
+  ; Check derived inside derived
+  (:derived
+    (otro ?x ?x)
+    (and
+      (equal ?x ?x)
+      (equal ?x ?x)
+    )
   )
 
   (:derived 
@@ -121,6 +132,7 @@
     (:method Case2 ; si no está at la ciudad destino, pero avion y persona están at la misma ciudad
       :precondition (and  (at ?p - person ?c1 - city)
                           (at ?a - aircraft ?c1 - city)
+                          (otro ?a ?a)
                     )
               
       :tasks (
