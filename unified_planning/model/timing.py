@@ -61,11 +61,12 @@ class Timepoint:
         self._container = container
 
     def __repr__(self):
-        if (
-            self._kind == TimepointKind.GLOBAL_START
-            or self._kind == TimepointKind.START
-        ):
+        if self._kind == TimepointKind.GLOBAL_START:
+            qualifier = "global_start"
+        elif self._kind == TimepointKind.START:
             qualifier = "start"
+        elif self._kind == TimepointKind.GLOBAL_END:
+            qualifier  = "global_end"
         else:
             qualifier = "end"
         if self._container is None:
