@@ -21,7 +21,7 @@ import unified_planning
 from unified_planning.engines import PlanGenerationResultStatus
 
 # from unified_planning.io import HPDLReader, HPDLWriter
-from unified_planning.io.hpdl_reader import HPDLReader
+from unified_planning.io.hpdl.hpdl_reader import HPDLReader
 
 # from unified_planning.io.hpdl_writer import HPDLWriter
 from unified_planning.model.problem_kind import full_numeric_kind
@@ -69,8 +69,8 @@ class TestHpdlIO(TestCase):
         #     if f.type.is_func_type():
         #         print("GET CODE", f.code)
 
-        self.assertEqual(24, len(problem.fluents)) # 14 functions + 10 predicates
-        self.assertEqual(26, len(problem.actions)) # 14 actions + 12 inlines
+        self.assertEqual(24, len(problem.fluents))  # 14 functions + 10 predicates
+        self.assertEqual(26, len(problem.actions))  # 14 actions + 12 inlines
         self.assertEqual(
             [
                 "Turn",
@@ -110,4 +110,4 @@ class TestHpdlIO(TestCase):
         self.assertEqual(
             4, len(problem.method("check-interactions-avatar_wall_stepback").subtasks)
         )
-        self.assertEqual(2, len(problem.task_network.subtasks)) # Goal
+        self.assertEqual(2, len(problem.task_network.subtasks))  # Goal
