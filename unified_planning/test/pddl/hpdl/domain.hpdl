@@ -146,11 +146,23 @@
               )
 
               (
-                (= ?end 40)
+                (and (= ?end 40) (<= ?dur 4))
                 (mover-avion ?a ?c1 ?c)
               )
               (
                 (= ?dur 5)
+                (desembarcar-pasajeros ?a ?c)
+              )
+              (
+                (>= ?dur 6)
+                (desembarcar-pasajeros ?a ?c)
+              )
+              (
+                (>= 6 ?dur)
+                (desembarcar-pasajeros ?a ?c)
+              )
+              (
+                (> ?dur 7)
                 (desembarcar-pasajeros ?a ?c)
               )
             )
