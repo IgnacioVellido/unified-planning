@@ -134,10 +134,10 @@ class Subtask:
         params = ", ".join([str(a) for a in self._args])
         s.append(f"{self.identifier}: {self._task.name}({params})")
         s.append(" {\n")
-        s.append(f"  start = {str(self._start)}\n")
-        s.append(f"  end = {str(self._end)}\n")
-        s.append(f"  duration = {str(self._duration)}\n")
-        s.append("  }")
+        s.append(f"     start = {str(self._start)}\n")
+        s.append(f"     end = {str(self._end)}\n")
+        s.append(f"     duration = {str(self._duration)}\n")
+        s.append("    }")
         return "".join(s)
 
     def __eq__(self, other):
