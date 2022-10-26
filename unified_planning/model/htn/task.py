@@ -118,13 +118,13 @@ class Subtask:
         self._args = self._env.expression_manager.auto_promote(*args)
 
         # TODO: Time restrictions
-        self._duration: "up.model.timing.DurationInterval" = (
+        self._duration_const: "up.model.timing.DurationInterval" = (
             up.model.timing.FixedDuration(self._env.expression_manager.Int(0))
         )
-        self._start: "up.model.timing.Timepoint" = (
+        self._start_const: "up.model.timing.Timepoint" = (
             Timepoint(TimepointKind.START, container=self.identifier)
         )
-        self._end: "up.model.timing.Timepoint" = (
+        self._end_const: "up.model.timing.Timepoint" = (
             Timepoint(TimepointKind.END, container=self.identifier)
         )
         assert len(self._args) == len(self._task.parameters)
@@ -132,12 +132,12 @@ class Subtask:
     def __repr__(self):
         s = []
         params = ", ".join([str(a) for a in self._args])
-        s.append(f"{self.identifier}: {self._task.name}({params})")
-        s.append(" {\n")
-        s.append(f"     start = {str(self._start)}\n")
-        s.append(f"     end = {str(self._end)}\n")
-        s.append(f"     duration = {str(self._duration)}\n")
-        s.append("    }")
+        s.append(f"{self.identifier}: {self._task.name}({params})\n")
+        s.append("        time_constraints = [\n")
+        s.append(f"          start = {str(self._start_const)}\n")
+        s.append(f"          end = {str(self._end_const)}\n")
+        s.append(f"          duration = {str(self._duration_const)}\n")
+        s.append("        ]")
         return "".join(s)
 
     def __eq__(self, other):
@@ -169,36 +169,36 @@ class Subtask:
     @property
     def start(self) -> Timepoint:
         """Timepoint representing the task's start time."""
-        return self._start
+        return Timepoint(TimepointKind.START, container=self.identifier)
 
     @property
     def end(self) -> Timepoint:
         """Timepoint representing the task's end time."""
-        return self._end
+        return Timepoint(TimepointKind.END, container=self.identifier)
 
-    def set_start_constraint(self, start: "up.model.timing.GlobalStartTiming"):
+    def set_start_constraint(self, start_const: "up.model.timing.GlobalStartTiming"):
         """
         Sets the `start point` for this `action`.
 
         :param start: The new `start point` of this `action`.
         """
         # TODO: Make any needed verification
-        self._start = start
+        self._start_const = start_const
 
-    def set_end_constraint(self, end: "up.model.timing.GlobalStartTiming"):
+    def set_end_constraint(self, end_const: "up.model.timing.GlobalStartTiming"):
         """
         Sets the `start point` for this `action`.
 
         :param start: The new `start point` of this `action`.
         """
         # TODO: Make any needed verification
-        self._end = end
+        self._end_const = end_const
 
-    def set_duration_constraint(self, duration: "up.model.timing.DurationInterval"):
+    def set_duration_constraint(self, duration_const: "up.model.timing.DurationInterval"):
         """
         Sets the `duration interval` for this `action`.
 
         :param duration: The new `duration interval` of this `action`.
         """
         # TODO: Make any needed verification
-        self._duration = duration
+        self._duration_const = duration_const
