@@ -1195,66 +1195,68 @@ class HPDLReader:
         for e in sub_exp:
             # Get variable (start/end/dur) and restriction indexes
             # TODO: ?dur < 5 and 5 < ?dur gives different results
-            v_id,r_id,upper = (0,1,True) if e.arg(0).is_parameter_exp() else (1,0,False)
+            v_id,r_id,less_than = (0,1,True) if e.arg(0).is_parameter_exp() else (1,0,False)
             var = e.arg(v_id).parameter().name
             restriction = e.arg(r_id)
 
             e_str = str(e) # expression as string
 
-            # Create restriction (start/end/dur)
+            # Set range bounds of restriction
             if 'start' in var:
-                subtask.set_start_constraint(
-                    model.GlobalStartTiming(restriction)
-                    # e_str
-                )
+                upper = model.StartTiming()
+                lower = model.GlobalStartTiming(restriction)
             elif 'end' in var:
-                subtask.set_end_constraint(
-                    model.GlobalEndTiming(restriction)
-                    # e_str
-                )
+                upper = model.EndTiming()
+                lower = model.GlobalStartTiming(restriction)
             elif 'dur' in var:
-                # Check equal/open/close
-                # TODO: Append e_str FNode or Timing?
-                # Timing fails with > and >= as there is no upper limit
-                if "<=" in e_str:
-                    # Check left/right (upper/lower bound )
-                    if upper:
-                        subtask.set_duration_constraint(
-                            # TODO: No debería ser Int(0) sino GlobalSTART
-                            model.ClosedTimeInterval(model.GlobalStartTiming(), restriction)
-                            # model.ClosedDurationInterval(self._em.Int(0), restriction)
-                            # e_str
-                        )
-                    else:
-                        subtask.set_duration_constraint(
-                            model.ClosedTimeInterval(restriction, model.GlobalEndTiming())
-                            # model.ClosedDurationInterval(restriction, model.GlobalEndTiming(restriction))
-                            # e_str
-                        ) 
-                elif "<" in e_str:
-                    # Check left/right
-                    if upper:
-                        subtask.set_duration_constraint(
-                            model.RightOpenTimeInterval(model.GlobalStartTiming(), restriction)
-                            # model.RightOpenDurationInterval(self._em.Int(0), restriction)
-                            # e_str
-                        )
-                    else:
-                        subtask.set_duration_constraint(
-                            model.LeftOpenTimeInterval(restriction, model.GlobalEndTiming())
-                            # model.LeftOpenDurationInterval(self._em.Int(0), model.EndTiming)
-                            # e_str
-                        )
+                if "<" in e_str : # Includes <=
+                    if less_than: # var <= restriction
+                        upper = model.StartTiming()
+                        lower = model.StartTiming(restriction)
+                    else: # restriction <= var
+                        upper = model.EndTiming()
+                        lower = model.StartTiming(restriction)
                 elif "==" in e_str:
-                    subtask.set_duration_constraint(
-                        model.FixedDuration(restriction)
-                        # e_str
-                    )
+                    lower = model.StartTiming(restriction)
                 else:
-                    raise
+                    raise SyntaxError(f"Not able to handle: {e_str}")
             else:
-                raise
+                raise SyntaxError(f"Not able to handle: {e}")
 
+            # Get interval
+            if "<=" in e_str:
+                if less_than: # var <= restriction
+                    constraint = model.ClosedTimeInterval(upper,lower)
+                else: # restriction <= var
+                    constraint = model.ClosedTimeInterval(lower,upper)
+            elif "<" in e_str:
+                if less_than:  # var < restriction
+                    constraint = model.RightOpenTimeInterval(upper,lower)
+                else: # restriction < var
+                    constraint = model.LeftOpenTimeInterval(lower,upper)
+            elif "==" in e_str:
+                constraint = lower
+            else:
+                raise SyntaxError(f"Not able to handle: {e_str}")
+
+            # Add interval to subtask
+            if 'start' in var:
+                subtask.set_start_constraint(constraint)
+            elif 'end' in var:
+                subtask.set_end_constraint(constraint)
+            elif 'dur' in var:
+                subtask.set_duration_constraint(constraint)
+
+            # Results read as:
+            # duration = (start + 7, end]
+            # duration must start at least with a delay of 7 behind the expected normal,
+            # so duration can be lower or equal than 7
+            # 
+            # end = global_start + 40
+            # end must happen 40 time units after the start of the plan
+
+        # TODO: Task _repr_ constraints should show start(_t3) instead of start+40
+        # Maybe store constrains in a separate object and revert back subtask._start/_end
         print(subtask)
 
 
