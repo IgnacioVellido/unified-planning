@@ -1,0 +1,56 @@
+(define (problem prob) (:domain dom)
+  (:objects
+    star0 - calib_direction
+    phenomenon5 phenomenon6 star1 star2 star3 star4 star7 - image_direction
+    instrument0 instrument1 - instrument
+    infrared1 spectrograph0 - mode
+    satellite0 satellite1 - satellite
+  )
+
+  (:init
+    (supports instrument0 spectrograph0)
+    (supports instrument0 infrared1)
+    (calibration_target instrument0 star0)
+    (on_board instrument0 satellite0)
+    (power_avail satellite0)
+    (pointing satellite0 star3)
+    (supports instrument1 infrared1)
+    (calibration_target instrument1 star0)
+    (on_board instrument1 satellite1)
+    (power_avail satellite1)
+    (pointing satellite1 star2)
+    (type_member_calib_direction star0)
+    (type_member_direction phenomenon5)
+    (type_member_direction phenomenon6)
+    (type_member_direction star0)
+    (type_member_direction star1)
+    (type_member_direction star2)
+    (type_member_direction star3)
+    (type_member_direction star4)
+    (type_member_direction star7)
+    (type_member_image_direction phenomenon5)
+    (type_member_image_direction phenomenon6)
+    (type_member_image_direction star1)
+    (type_member_image_direction star2)
+    (type_member_image_direction star3)
+    (type_member_image_direction star4)
+    (type_member_image_direction star7)
+    (type_member_instrument instrument0)
+    (type_member_instrument instrument1)
+    (type_member_mode infrared1)
+    (type_member_mode spectrograph0)
+    (type_member_satellite satellite0)
+    (type_member_satellite satellite1)
+  )
+
+  (:tasks-goal
+      :tasks (
+        (do_observation phenomenon6 infrared1)
+        (do_observation star3 infrared1)
+        (do_observation phenomenon5 spectrograph0)
+        (do_observation star4 spectrograph0)
+        (do_observation star7 spectrograph0)
+        (do_observation star2 infrared1)
+      )
+  )
+)

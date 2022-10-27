@@ -1,0 +1,32 @@
+(define (problem prob) (:domain dom)
+  (:objects
+    GroundStation2 - calib_direction
+    Phenomenon4 Phenomenon6 - image_direction
+    instrument0 - instrument
+    thermograph0 - mode
+    satellite0 - satellite
+  )
+
+  (:init
+    (on_board instrument0 satellite0)
+    (supports instrument0 thermograph0)
+    (calibration_target instrument0 GroundStation2)
+    (power_avail satellite0)
+    (pointing satellite0 Phenomenon6)
+    (type_member_calib_direction GroundStation2)
+    (type_member_direction GroundStation2)
+    (type_member_direction Phenomenon4)
+    (type_member_direction Phenomenon6)
+    (type_member_image_direction Phenomenon4)
+    (type_member_image_direction Phenomenon6)
+    (type_member_instrument instrument0)
+    (type_member_mode thermograph0)
+    (type_member_satellite satellite0)
+  )
+
+  (:tasks-goal
+      :tasks (
+        (do_observation Phenomenon4 thermograph0)
+      )
+  )
+)
