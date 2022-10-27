@@ -1,13 +1,4 @@
-import typing
-from collections import OrderedDict
-from fractions import Fraction
-from itertools import product
-from typing import Callable, Dict, List, Tuple, Union, cast
-
 import pyparsing
-import unified_planning as up
-import unified_planning.model.htn as htn
-import unified_planning.model.walkers
 from pyparsing import (
     Group,
     Keyword,
@@ -23,11 +14,6 @@ from pyparsing import (
     nums,
     restOfLine,
 )
-from unified_planning import model
-from unified_planning.environment import Environment, get_env
-from unified_planning.exceptions import UPUsageError
-from unified_planning.model import FNode, expression, problem
-from unified_planning.model.expression import Expression
 
 if pyparsing.__version__ < "3.0.0":
     from pyparsing import ParseResults
