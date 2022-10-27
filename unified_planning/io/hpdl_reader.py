@@ -1174,7 +1174,7 @@ class HPDLReader:
 
         return htn.Task(task_name, task_params)
 
-    def _parse_time_const(
+    def _add_time_const(
         self,
         exp,
         subtask,
@@ -1281,9 +1281,8 @@ class HPDLReader:
                 # TODO: Check and impose time restrictions
                 time = subs.get("time_exp", None)
                 if time is not None:
-                    print("Time constraint", time)
                     subtask_model = self._parse_subtask(subs["subtask"], method_params)
-                    const = self._parse_time_const(time, subtask_model, method_params) # Add time constraint
+                    self._add_time_const(time, subtask_model, method_params) # Add time constraint
                 else:
                     # TODO: Clean
                     subtask_model = self._parse_subtask(subs, method_params)
@@ -1603,9 +1602,11 @@ class HPDLReader:
                         self._parse_exp({}, i[1]),
                         self._parse_exp({}, i[2]),
                     )
-                elif (
+                # TODO: Add support for dates also here (change isdigit)
+                elif ( # "and" TI
                     len(i) == 3 and i[0] == "at" and i[1].replace(".", "", 1).isdigit()
                 ):
+                    print(i)
                     ti = model.StartTiming(Fraction(i[1]))
                     va = self._parse_exp({}, i[2])
                     if va.is_fluent_exp():
@@ -1616,7 +1617,29 @@ class HPDLReader:
                         self.problem.add_timed_effect(ti, va.arg(0), va.arg(1))
                     else:
                         raise SyntaxError(f"Not able to handle this TIL {i}")
-                # TODO: Add end/between
+                elif ( # "between" TI
+                    len(i) == 4 and i[0] == "between" and
+                    i[1].replace(".", "", 1).isdigit() and
+                    i[2].replace(".", "", 1).isdigit()
+                ):
+                    # TODO: I believe it could be included as an interval, but
+                    # for the moment I'll keep it as two time effects, the
+                    # provided and the not
+                    lower = model.StartTiming(Fraction(i[1]))
+                    upper = model.StartTiming(Fraction(i[2]))
+                    # ti = model.ClosedTimeInterval(lower, upper)
+                    va = self._parse_exp({}, i[3])
+                    if va.is_fluent_exp():
+                        self.problem.add_timed_effect(lower, va, self._em.TRUE())
+                        self.problem.add_timed_effect(upper, va, self._em.FALSE())
+                    elif va.is_not():
+                        self.problem.add_timed_effect(lower, va.arg(0), self._em.FALSE())
+                        self.problem.add_timed_effect(upper, va.arg(0), self._em.TRUE())
+                    elif va.is_equals():
+                        # self.problem.add_timed_effect(ti, va.arg(0), va.arg(1))
+                        raise NotImplementedError(f"No support between assignments TIL {i}")
+                    else:
+                        raise SyntaxError(f"Not able to handle this TIL {i}")
                 else:
                     self.problem.set_initial_value(
                         self._parse_exp({}, i),

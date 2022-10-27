@@ -17,8 +17,10 @@
     a1 a2 a3 - aircraft
 )
 (:init
-    (at p1 huelva)    
-    (at p2 huelva)    
+    (at 5 (at p1 huelva))
+    (between 1 7 (at p2 huelva))
+    ; (at p1 huelva)
+    ; (at p2 huelva)    
     (at p3 huelva)    
     (at p4 cadiz)  
     (at p5 cadiz)    
