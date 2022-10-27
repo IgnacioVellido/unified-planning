@@ -11,16 +11,13 @@ from pyparsing import (
     alphanums,
     alphas,
     nestedExpr,
-    nums,
     restOfLine,
 )
 
 if pyparsing.__version__ < "3.0.0":
-    from pyparsing import ParseResults
     from pyparsing import oneOf as one_of
 else:
     from pyparsing import one_of
-    from pyparsing.results import ParseResults
 
 
 class HPDLGrammar:
@@ -45,6 +42,7 @@ class HPDLGrammar:
             + Suppress(")")
         )
 
+        # ----------------------------------------------------------
         # Sections
         sec_requirements = (
             Suppress("(")
@@ -130,14 +128,9 @@ class HPDLGrammar:
             + nestedExpr().setResultsName("eff")
             + Suppress(")")
         )
-        # ----------------------------------------------------------
-
-        tag_def = Group(
-            Suppress("(") + ":tag" + "prettyprint" + QuotedString('"') + Suppress(")")
-        ).setResultsName("inline")
 
         # ----------------------------------------------------------
-        # HTN
+        # HPDL
 
         inline_def = Group(
             Suppress("(")
@@ -146,6 +139,13 @@ class HPDLGrammar:
             + nestedExpr().setResultsName("eff")
             + Suppress(")")
         ).setResultsName("inline")
+
+        tag_def = Group(
+            Suppress("(") + ":tag" + "prettyprint" + QuotedString('"') + Suppress(")")
+        ).setResultsName("inline")
+
+        # ----------------------------------------------------------
+        # HTN
 
         subtask_def = Group(
             Suppress("(") + name.setResultsName("name") + parameters + Suppress(")")
@@ -194,6 +194,7 @@ class HPDLGrammar:
         )
 
         # ----------------------------------------------------------
+
         domain = (
             Suppress("(")
             + "define"
@@ -213,6 +214,7 @@ class HPDLGrammar:
         )
 
         # ----------------------------------------------------------
+        # Problem
 
         objects = OneOrMore(
             Group(Group(OneOrMore(name)) + Optional(Suppress("-") + name))
