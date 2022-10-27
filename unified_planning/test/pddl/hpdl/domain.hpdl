@@ -139,14 +139,16 @@
               ; (embarcar-pasajeros ?a ?c1 ?c)
               ; (mover-avion ?a ?c1 ?c)
               ; (desembarcar-pasajeros ?a ?c)
+              
               ; Testing time management
               (
-                (and (>= ?start 25) (< ?dur 3))
+                ; (and (< ?end 25) (< ?dur 3))
+                (and (> ?start 25) (= ?dur (+ (boarding-time) 5)))
                 (embarcar-pasajeros ?a ?c1 ?c)
               )
 
               (
-                (and (= ?end 40) (<= ?dur 4))
+                (and (= ?end 40) (<= ?dur (* 2 (slow-speed ?a))))
                 (mover-avion ?a ?c1 ?c)
               )
               (

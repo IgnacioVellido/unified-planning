@@ -1176,28 +1176,41 @@ class HPDLReader:
 
     def _parse_time_const(
         self,
+        exp,
         subtask,
-        exp
+        method_params
     ):
-        # Build params as reals
-        # TODO: Include method params too
-        available_params = {
+        """Parse a time constraint applied to a subtask. Possible variables are
+        ?start, ?end and ?dur. Constraints that affect ?start or ?end indicates
+        time units from the planning start time (GlobalStart).
+
+        Results read as:
+
+        - duration = (start + 7, end]
+
+            duration must start at least with a delay of 7 time units behind the
+            expected normal, so duration can be lower or equal than 7
+        
+        - end = global_start + 40
+        
+            end must happen 40 time units after the start of the plan
+        """
+        # Let _parse_exp know which are time variables
+        time_params = {
             "start": self._tm.RealType(),
             "end": self._tm.RealType(),
             "dur": self._tm.RealType()
         }
-        parsed_exp = self._parse_exp({}, exp, {}, available_params)
-        print(parsed_exp)
+        parsed_exp = self._parse_exp({}, exp, {}, time_params | method_params)
         
-        # More than one exp
+        # Check for more than one exp
         sub_exp = parsed_exp.args if parsed_exp.is_and() else [parsed_exp]
 
         for e in sub_exp:
-            # Get variable (start/end/dur) and restriction indexes
-            # TODO: ?dur < 5 and 5 < ?dur gives different results
             v_id,r_id,less_than = (0,1,True) if e.arg(0).is_parameter_exp() else (1,0,False)
-            var = e.arg(v_id).parameter().name
-            restriction = e.arg(r_id)
+
+            var = e.arg(v_id).parameter().name # Time variable affected (start/end/dur)
+            restriction = e.arg(r_id) # Constraint applied
 
             e_str = str(e) # expression as string
 
@@ -1247,17 +1260,6 @@ class HPDLReader:
             elif 'dur' in var:
                 subtask.set_duration_constraint(constraint)
 
-            # Results read as:
-            # duration = (start + 7, end]
-            # duration must start at least with a delay of 7 behind the expected normal,
-            # so duration can be lower or equal than 7
-            # 
-            # end = global_start + 40
-            # end must happen 40 time units after the start of the plan
-
-        # TODO: Task _repr_ constraints should show start(_t3) instead of start+40
-        # Maybe store constrains in a separate object and revert back subtask._start/_end
-        print(subtask)
 
 
     def _parse_method(
@@ -1281,7 +1283,7 @@ class HPDLReader:
                 if time is not None:
                     print("Time constraint", time)
                     subtask_model = self._parse_subtask(subs["subtask"], method_params)
-                    const = self._parse_time_const(subtask_model, time) # Add time constraint
+                    const = self._parse_time_const(time, subtask_model, method_params) # Add time constraint
                 else:
                     # TODO: Clean
                     subtask_model = self._parse_subtask(subs, method_params)
