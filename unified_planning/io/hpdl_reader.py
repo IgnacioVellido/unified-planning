@@ -246,15 +246,6 @@ class HPDLGrammar:
             Group(Group(OneOrMore(name)) + Optional(Suppress("-") + name))
         ).setResultsName("objects")
 
-        # htn_def = Group(
-        #     Suppress("(")
-        #     + ":htn"
-        #     + Optional(":tasks" + nestedExpr().setResultsName("tasks"))
-        #     + Optional(":ordering" + nestedExpr().setResultsName("ordering"))
-        #     + Optional(":constraints" + nestedExpr().setResultsName("constraints"))
-        #     + Suppress(")")
-        # )
-
         metric = (Keyword("minimize") | Keyword("maximize")).setResultsName(
             "optimization"
         ) + (name | nestedExpr()).setResultsName("metric")
