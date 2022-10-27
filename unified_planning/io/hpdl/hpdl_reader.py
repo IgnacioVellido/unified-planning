@@ -8,21 +8,7 @@ import pyparsing
 import unified_planning as up
 import unified_planning.model.htn as htn
 import unified_planning.model.walkers
-from pyparsing import (
-    Group,
-    Keyword,
-    OneOrMore,
-    Optional,
-    QuotedString,
-    Suppress,
-    Word,
-    ZeroOrMore,
-    alphanums,
-    alphas,
-    nestedExpr,
-    nums,
-    restOfLine,
-)
+
 from unified_planning import model
 from unified_planning.environment import Environment, get_env
 from unified_planning.exceptions import UPUsageError
@@ -32,9 +18,7 @@ from unified_planning.model.expression import Expression
 
 if pyparsing.__version__ < "3.0.0":
     from pyparsing import ParseResults
-    from pyparsing import oneOf as one_of
 else:
-    from pyparsing import one_of
     from pyparsing.results import ParseResults
 
 
