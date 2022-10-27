@@ -98,19 +98,9 @@ class TestHpdlIO(TestCase):
 
         domain_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "vgdl/domain.hpdl")
         problem_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "vgdl/problem.hpdl")
-        # domain_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "domain.hpdl")
-        # problem_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "problem.hpdl")
         problem = reader.parse_problem(domain_filename, problem_filename)
 
-        # writer = HPDLWriter(problem)
-        # hpdl_domain = writer.get_domain()
-        # print(hpdl_domain)
-        # hpdl_problem = writer.get_problem()
-        # print(hpdl_problem)
-
         assert isinstance(problem, up.model.htn.HierarchicalProblem)
-        # print(problem.goals)
-        # print(problem.actions)
 
         self.assertEqual(24, len(problem.fluents))  # 14 functions + 10 predicates
         self.assertEqual(26, len(problem.actions))  # 14 actions + 12 inlines

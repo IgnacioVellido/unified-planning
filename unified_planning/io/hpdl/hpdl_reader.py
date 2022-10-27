@@ -848,7 +848,7 @@ class HPDLReader:
                     i += 3
                 else:  # Not type specified, ignore
                     i += 1
-                    # In case we sometime need to get non-specified params,
+                    # In case we need to get non-specified params,
                     # change line above
 
             else:  # Not a param, ignore
@@ -882,11 +882,9 @@ class HPDLReader:
 
             # ordering[0] is the order tag, rest are subtasks definitions
             for subs in ordering[1:]:
-                # TODO: Check and impose time restrictions
+                # TODO: Add time restrictions from branch time-constraints
                 time = subs.get("time_exp", None)
                 if time is not None:
-                    # print("Time constraint", time)
-                    # self._add_subtask_time()
                     continue
 
                 subtask_model = self._parse_subtask(subs, method_params)
@@ -896,7 +894,7 @@ class HPDLReader:
                     subtasks.append(subtask_model)
 
                     # Get model.Parameter for each param
-                    # TODO: See parse_inline params TODO
+                    # TODO: See parse_inline params TODOs
                     for p in subtask_model.parameters:
                         subtasks_params.append(p.parameter())
 
@@ -1054,16 +1052,12 @@ class HPDLReader:
 
         fluents = []
         for exp in derived.get("exp", None):  # Add fluents
-            # TODO: parse_predicate or parse_exp
-            # parse_predicate fails with operations like "<"
-            # fluent = self._parse_predicate(exp)
-
             fluent = self._parse_exp({}, exp, {}, params)  # Returns FNode
             fluents.append(fluent)
 
-        # TODO: Add to derived dict here instead of outside
         self.derived[name] = fluents
 
+        # TODO: Wait for discussion #247 before delete
         # return model.Derived(name, self._tm.BoolType(), params, self._env, fluents)
 
     def parse_problem(
@@ -1104,14 +1098,6 @@ class HPDLReader:
             fluent = self._parse_predicate(p)
             self.problem.add_fluent(fluent)
 
-        # TODO  Las funciones pddl se gestionan y se añaden como un fluent especial "con un tipo real".
-        #       un fluent en el upfmodel es [name, type, signature], donde signature son los parámetros.
-        #       habría que
-        #               o bien cambiar la definición de la clase fluent en el upfmodel
-        #               o bien crear una subclase de HierarchicalProblem, que sea, HPDLProblem, CREO  que esto es lo ideal
-        #                 porque un HPDLProblem tiene los mismos atributos que un HierarchicalProblem, y un conjunto
-        #                 adicional como derived predicates y functions que se implementan con python.
-        # TODO AÑADIR la funcion problem.add_pythonfunction(f)
         for f in domain_res.get("functions", []):
             func = self._parse_function(f)
             code = f.get("code", None)
@@ -1258,7 +1244,6 @@ class HPDLReader:
                     )
 
             # HPDL task-goal is the equivalent of HDDL htn tasks
-            # TODO: Add ordering to task_network
             tasknet = problem_res.get("goal", None)
             if tasknet is not None:
                 subtasks, _ = self._parse_method(tasknet, self.types_map)
