@@ -14,6 +14,7 @@ from pyparsing import (
     OneOrMore,
     Optional,
     QuotedString,
+    SkipTo,
     Suppress,
     Word,
     ZeroOrMore,
@@ -96,12 +97,19 @@ class HPDLGrammar:
             + Suppress(")")
         )
 
+        python_function = (
+            Suppress("{") + SkipTo("}").setResultsName("code") + Suppress("}")
+        )
         # Functions can specify -number type
         sec_functions = (
             Suppress("(")
             + ":functions"
             + Group(
-                OneOrMore(predicate + Optional(Suppress("- number")))
+                OneOrMore(
+                    predicate
+                    + Optional(Suppress("- number"))
+                    + Optional(python_function)
+                )
             ).setResultsName("functions")
             + Suppress(")")
         )

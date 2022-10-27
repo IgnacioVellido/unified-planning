@@ -53,7 +53,7 @@ class TestHpdlIO(TestCase):
         problem = reader.parse_problem(domain_filename, problem_filename)
 
         assert isinstance(problem, up.model.htn.HierarchicalProblem)
-        self.assertEqual(28, len(problem.fluents))  # 15 functions + 13 predicates
+        self.assertEqual(30, len(problem.fluents))  # 15 functions + 13 predicates
         self.assertEqual(5, len(problem.actions))  # 14 actions + 12 inlines
         self.assertEqual(
             [
@@ -89,7 +89,6 @@ class TestHpdlIO(TestCase):
 
         for action in problem.actions:
             assert isinstance(action, up.model.action.DurativeAction)
-
         self.assertEqual(25, len(problem.task_network.subtasks))  # Goal
 
     def test_hpdl_reader_vgdl(self):
@@ -108,7 +107,6 @@ class TestHpdlIO(TestCase):
         # print(hpdl_problem)
 
         assert isinstance(problem, up.model.htn.HierarchicalProblem)
-        # print(problem)
         # print(problem.goals)
         # print(problem.actions)
 
