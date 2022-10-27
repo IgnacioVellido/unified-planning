@@ -271,6 +271,14 @@ class HPDLGrammar:
             + Suppress(")")
         )
 
+        # Time customization
+        sec_customization = Group(
+            Suppress("(")
+            + ":customization"
+            + OneOrMore(nestedExpr())
+            + Suppress(")")
+        )
+
         # ----------------------------------------------------------
 
         problem = (
@@ -284,6 +292,7 @@ class HPDLGrammar:
             + ":domain"
             + name
             + Suppress(")")
+            + Optional(sec_customization.setResultsName("customization"))
             + Optional(sec_requirements)
             + Optional(Suppress("(") + ":objects" + objects + Suppress(")"))
             + Suppress("(")
@@ -1527,6 +1536,12 @@ class HPDLReader:
 
             self.problem.name = problem_res["name"]
 
+            # TODO: Time customization
+            customization = problem_res.get("customization", None)
+            if customization is not None:
+                # print(customization)
+                pass
+
             objects = problem_res.get("objects", [])
             objects = self._parse_params(objects)
 
@@ -1584,8 +1599,6 @@ class HPDLReader:
                             )
                         else:
                             raise NotImplementedError
-
-            # TODO: customization (time format/start/horizon/unit)
             
             for i in problem_res.get("init", []):
                 if i[0] == "=":
@@ -1597,7 +1610,6 @@ class HPDLReader:
                 elif ( # "and" TI
                     len(i) == 3 and i[0] == "at" and i[1].replace(".", "", 1).isdigit()
                 ):
-                    print(i)
                     ti = model.StartTiming(Fraction(i[1]))
                     va = self._parse_exp({}, i[2])
                     if va.is_fluent_exp():

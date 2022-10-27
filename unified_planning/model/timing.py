@@ -93,7 +93,6 @@ class Timepoint:
         """Returns the `container` in which this `Timepoint` is defined or `None` if it refers to the enclosing `action/method`."""
         return self._container
 
-# TODO: Change delay to Union[int,Fraction,FNode]
 class Timing:
     """
     Class that used a :class:`~unified_planning.model.Timepoint` to define from when this `Timing` is considered and a :func:`delay <unified_planning.model.Timing.delay>`,
