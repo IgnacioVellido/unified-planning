@@ -40,7 +40,6 @@ else:
 class HPDLGrammar:
     def __init__(self):
         name = Word(alphas, alphanums + "_" + "-")
-        number = Word(nums + "." + "-")
 
         name_list = Group(Group(OneOrMore(name)) + Optional(Suppress("-") + name))
 
@@ -83,9 +82,7 @@ class HPDLGrammar:
         sec_constants = (
             Suppress("(")
             + ":constants"
-            # + Optional(
             + OneOrMore(name_list).setResultsName("constants")
-            # )
             + Suppress(")")
         )
 
@@ -155,7 +152,7 @@ class HPDLGrammar:
 
         # ----------------------------------------------------------
         # HTN
-        # nestedExpr in case we missed something
+
         inline_def = Group(
             Suppress("(")
             + ":inline"
@@ -181,14 +178,13 @@ class HPDLGrammar:
             + name.setResultsName("name")
             + ":precondition"
             + nestedExpr().setResultsName("pre")
-            # TODO: Set order
             + Optional(":meta" + Suppress("(") + OneOrMore(tag_def) + Suppress(")"))
             + ":tasks"
             + Suppress("(")
             + Group(
                 ZeroOrMore(
                     Group(
-                        # Ordering is defined with [] or ()
+                        # Ordering is defined with parallel [] or sequential ()
                         Optional("[", default="(").setResultsName("ordering")
                         + OneOrMore(inline_def | subtask_def | time_rest_subt)
                         + Suppress(Optional("]"))
@@ -245,18 +241,16 @@ class HPDLGrammar:
             + ":tasks-goal"
             + ":tasks"
             + Suppress("(")
-            # TODO: Almost the same as in method, refactor
             + Group(
                 ZeroOrMore(
                     Group(
-                        # Ordering is defined with [] or ()
+                        # Ordering is defined with parallel [] or sequential ()
                         Optional("[", default="(").setResultsName("ordering")
                         + OneOrMore(subtask_def)
                         + Suppress(Optional("]"))
                     )
                 )
             ).setResultsName("subtasks")
-            # + Group(OneOrMore(subtask_def)).setResultsName("subtasks")
             + Suppress(")")
             + Suppress(")")
         )
@@ -282,7 +276,7 @@ class HPDLGrammar:
             + Suppress(")")
             + Optional(
                 goal.setResultsName("goal")
-            )  # TODO: It isn't optional in HPDL, right?
+            )
             + Optional(Suppress("(") + ":metric" + metric + Suppress(")"))
             + Suppress(")")
         )
