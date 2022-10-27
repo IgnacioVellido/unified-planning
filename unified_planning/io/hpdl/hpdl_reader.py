@@ -59,10 +59,8 @@ class HPDLReader:
         self.universal_assignments: Dict["model.Action", List[ParseResults]] = {}
         self.has_actions_cost: bool = False
 
-        # inline_counter
-        self.inline_version = 0
-        # Parsed derived Dict[str, List[FNode]]
-        self.derived = {}
+        self.inline_version = 0     # inline id counter
+        self.derived = {}           # Parsed derived Dict[str, List[FNode]]
 
     # Parses sub_expressions and calls add_effect
     def _add_effect(
@@ -200,7 +198,6 @@ class HPDLReader:
     # Checks (at start/end/overall) and calls _add_effect
     def _add_timed_effects(
         self,
-        problem: model.Problem,
         act: model.DurativeAction,
         types_map: Dict[str, model.Type],
         universal_assignments: typing.Optional[
@@ -218,7 +215,6 @@ class HPDLReader:
                     to_add.append(e)
             elif len(eff) == 3 and op == "at" and eff[1] == "start":
                 self._add_effect(
-                    problem,
                     act,
                     types_map,
                     universal_assignments,
@@ -228,7 +224,6 @@ class HPDLReader:
                 )
             elif len(eff) == 3 and op == "at" and eff[1] == "end":
                 self._add_effect(
-                    problem,
                     act,
                     types_map,
                     universal_assignments,
@@ -663,11 +658,11 @@ class HPDLReader:
 
         # Add each effect to action
         self._add_timed_effects(
-            problem, dur_act, params, self.universal_assignments, eff
+            dur_act, params, self.universal_assignments, eff
         )
         # TODO: Must pass params or types_map? What is assignments?
         # self._add_timed_effects(
-        #     problem, dur_act, self.types_map, self.universal_assignments, eff, params
+        #     dur_act, self.types_map, self.universal_assignments, eff, params
         # )
 
         # Check action cost
@@ -1189,7 +1184,6 @@ class HPDLReader:
                             )
 
                             self._add_timed_effects(
-                                self.problem,
                                 action,
                                 params,
                                 None,
