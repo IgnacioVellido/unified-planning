@@ -54,8 +54,8 @@ class TestHpdlIO(TestCase):
 
         assert isinstance(problem, up.model.htn.HierarchicalProblem)
         self.assertEqual(
-            35, len(problem.fluents)
-        )  # 15 functions + 12 predicates + 8 derived
+            28, len(problem.fluents)
+        )  # 15 functions + 13 predicates (9 derived)
         self.assertEqual(5, len(problem.actions))  # 14 actions + 12 inlines
         self.assertEqual(
             [
