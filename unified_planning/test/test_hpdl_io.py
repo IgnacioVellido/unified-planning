@@ -89,12 +89,8 @@ class TestHpdlIO(TestCase):
             [method.name for method in problem.methods],
         )
 
-        assert isinstance(problem.actions[0], up.model.action.DurativeAction)
-
-        # self.assertEqual(1, len(problem.method("turn_avatar-avatar_move_up").subtasks))
-        # self.assertEqual(
-        #     4, len(problem.method("check-interactions-avatar_wall_stepback").subtasks)
-        # )
+        for action in problem.actions:
+            assert isinstance(action, up.model.action.DurativeAction)
         self.assertEqual(25, len(problem.task_network.subtasks))  # Goal
 
     def test_hpdl_reader_vgdl(self):
@@ -113,7 +109,6 @@ class TestHpdlIO(TestCase):
         # print(hpdl_problem)
 
         assert isinstance(problem, up.model.htn.HierarchicalProblem)
-        # print(problem)
         # print(problem.goals)
         # print(problem.actions)
 
