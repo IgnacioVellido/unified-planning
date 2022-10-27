@@ -8,12 +8,12 @@ import pyparsing
 import unified_planning as up
 import unified_planning.model.htn as htn
 import unified_planning.model.walkers
-
 from unified_planning import model
 from unified_planning.environment import Environment, get_env
 from unified_planning.exceptions import UPUsageError
 from unified_planning.io.hpdl import HPDLGrammar
 from unified_planning.model import FNode, expression, problem
+from unified_planning.model.effect import SimulatedEffect
 from unified_planning.model.expression import Expression
 
 if pyparsing.__version__ < "3.0.0":
@@ -59,8 +59,8 @@ class HPDLReader:
         self.universal_assignments: Dict["model.Action", List[ParseResults]] = {}
         self.has_actions_cost: bool = False
 
-        self.inline_version = 0     # inline id counter
-        self.derived = {}           # Parsed derived Dict[str, List[FNode]]
+        self.inline_version = 0  # inline id counter
+        self.derived = {}  # Parsed derived Dict[str, List[FNode]]
 
     # Parses sub_expressions and calls add_effect
     def _add_effect(
@@ -374,7 +374,7 @@ class HPDLReader:
         return res_params
 
     def _parse_function(self, func: OrderedDict) -> model.Fluent:
-        name = func[0][0]   # Modified due to added grammar group
+        name = func[0][0]  # Modified due to added grammar group
         params = self._parse_params(func[0][1])
         f = model.Fluent(name, self._tm.RealType(), params, self._env)
         if name == "total-cost":
@@ -657,9 +657,7 @@ class HPDLReader:
             dur_act.add_condition(c[0], c[1])
 
         # Add each effect to action
-        self._add_timed_effects(
-            dur_act, params, self.universal_assignments, eff
-        )
+        self._add_timed_effects(dur_act, params, self.universal_assignments, eff)
         # TODO: Must pass params or types_map? What is assignments?
         # self._add_timed_effects(
         #     dur_act, self.types_map, self.universal_assignments, eff, params
@@ -1013,6 +1011,40 @@ class HPDLReader:
 
     # _________________________________________________________
 
+    def _parse_function_code(
+        self, fluent: model.Fluent, code: str
+    ) -> model.SimulatedEffect:
+
+        # Replace ?var with var
+        code_sus = code
+        for param in fluent.signature:
+            code_sus = code_sus.replace(f"?{param.name}", f"{param.name}")
+
+        # Dont judge me
+        def _inner_fun(
+            problem: model.Problem,
+            state: model.ROState,
+            actual_params: Dict["up.model.parameter.Parameter", "up.model.fnode.FNode"],
+        ):
+            values = {}
+            for param in fluent.signature:
+                values[param.name] = state.get_value(
+                    actual_params.get(param)
+                ).constant_value()
+
+            # Dont judge me 2
+            return eval(code_sus, {}, values)
+
+        return model.SimulatedEffect([fluent(*fluent.signature)], _inner_fun)
+
+        # for p in params:
+        #     print("Param", p)
+
+        # code_clean = code.replace(" ", "")
+
+        # def _internal_function(problem, state, actual_params):
+        #     return eval(code)
+
     # NOTE: Derived are declared in :predicates, so no need to add
     # fluent to problem here, they are already in there
     def _parse_derived(self, derived: OrderedDict) -> Dict[str, List[FNode]]:
@@ -1082,6 +1114,11 @@ class HPDLReader:
         # TODO AÑADIR la funcion problem.add_pythonfunction(f)
         for f in domain_res.get("functions", []):
             func = self._parse_function(f)
+            code = f.get("code", None)
+            if code:
+                simulated_effect = self._parse_function_code(func, code[0])
+                print("effect", simulated_effect)
+
             self.problem.add_fluent(func)
 
         # Must go after functions, as they can be used in derived
