@@ -78,8 +78,11 @@ class HPDLGrammar:
             + Suppress(")")
         )
 
+        # Fails if curly brackets inside python_function, but as far as I know they
+        # are only used in dictionaries who were introduced in Python 3.7, which
+        # SIADEX does not support
         python_function = (
-            Suppress("{") + SkipTo("}").setResultsName("code") + Suppress("}")
+            Suppress("{") + SkipTo("}") + Suppress("}")
         )
         # Functions can specify -number type
         sec_functions = (
@@ -87,9 +90,11 @@ class HPDLGrammar:
             + ":functions"
             + Group(
                 OneOrMore(
-                    predicate
-                    + Optional(Suppress("- number"))
-                    + Optional(python_function)
+                    Group(
+                        predicate
+                        + Optional(Suppress("- number"))
+                        + Optional(python_function.setResultsName("code"))
+                    )
                 )
             ).setResultsName("functions")
             + Suppress(")")

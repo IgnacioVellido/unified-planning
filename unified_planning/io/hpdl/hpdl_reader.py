@@ -374,8 +374,8 @@ class HPDLReader:
         return res_params
 
     def _parse_function(self, func: OrderedDict) -> model.Fluent:
-        name = func[0]
-        params = self._parse_params(func[1])
+        name = func[0][0]   # Modified due to added grammar group
+        params = self._parse_params(func[0][1])
         f = model.Fluent(name, self._tm.RealType(), params, self._env)
         if name == "total-cost":
             self.has_actions_cost = True
