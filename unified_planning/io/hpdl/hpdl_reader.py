@@ -584,11 +584,6 @@ class HPDLReader:
             elif op == "forall":
                 assert isinstance(exp, ParseResults)
                 # Get the list of universal_assignments linked to this action. If it does not exist, default it to the empty list
-                # TODO: Why was this commented???
-                # Meterlo en assignments porque luego al crear el problem.pddl
-                # se van a expandir
-                # TODO: We should receive the action for this
-                # so in the end this becomes parse and add effect
                 # assert self.universal_assignments is not None
                 # assert act is not None
                 # action_assignments = self.universal_assignments.setdefault(act, [])
@@ -660,10 +655,6 @@ class HPDLReader:
         self._add_timed_effects(
             dur_act, params, self.universal_assignments, eff
         )
-        # TODO: Must pass params or types_map? What is assignments?
-        # self._add_timed_effects(
-        #     dur_act, self.types_map, self.universal_assignments, eff, params
-        # )
 
         # Check action cost
         self.has_actions_cost = (
@@ -682,7 +673,7 @@ class HPDLReader:
         duration: typing.Optional[List[str]] = None,
     ) -> model.Action:
 
-        # TODO: Check durative actions
+        # Durative actions
         if durative:
             return self._build_durative_action(name, params, duration[0], pre, eff)
 
@@ -769,8 +760,6 @@ class HPDLReader:
         eff_params = self._get_params_in_exp(inline["eff"][0])
 
         # Join with method_params
-        # TODO: A param could have been defined in some subtask, and method_params
-        # is not updated (should be updated in parse_metods)
         res["params"] = method_params
         res["params"].update(cond_params)
         res["params"].update(eff_params)
@@ -838,8 +827,6 @@ class HPDLReader:
                 raise ValueError(f"Type {type} not defined")
 
         res_params = OrderedDict()
-        # TODO: Can also be defined as ?o1 ?o2 - object
-        # '?o1', '-', 'object', '?o2', '-', 'object'
         i = 0
         while i < len(params):
             if params[i][0] == "?":  # parameter
@@ -848,7 +835,7 @@ class HPDLReader:
                 ):  # type is specified, check it
                     res_params[params[i][1:]] = parse_type(params[i + 2])
                     i += 3
-                else:  # Not type specified, ignore
+                else:  # No type specified, ignore
                     i += 1
                     # In case we need to get non-specified params,
                     # change line above
@@ -980,23 +967,13 @@ class HPDLReader:
             return None
         assert isinstance(task, htn.Task) or isinstance(task, model.Action)
 
-        # TODO: Some param could have been defined in another subtask, check that
-        # doesn't brings up an error
         # 1: Find subtask params
         subt_params = self._parse_params(subtask["params"])
-        # print("subtask params", subt_params)
 
         # 2: Find params of action/task invoked
         task_params = OrderedDict({p.name: p.type for p in task.parameters})
-        # print("task params", task_params)
 
-        # TODO: Ahora mismo subt_params contiene la declaración de la subtask
-        # y task_params la de la acción/tarea.
-        # Los nombres no tienen que coincidir
-        # Habría que iterar por ambos y crear un nuevo dict que le asigna a la
-        # variable de param_ordict el tipo en task_params
-        # Si no va a fallar cuando los nombres no coincidan
-        # TODO: What if the domain has an error, and both dict have different size
+        # Set the variable names of task_params to subt_params
         params = OrderedDict()
         for s_p, t_p in zip(subt_params.items(), task_params.items()):
             params[s_p[0]] = t_p[1]
@@ -1025,7 +1002,7 @@ class HPDLReader:
 
         self.derived[name] = fluents
 
-        # TODO: Wait for discussion #247 before delete
+        # TODO: Wait for discussion #247 before deleting this
         # return model.Derived(name, self._tm.BoolType(), params, self._env, fluents)
 
     def parse_problem(
@@ -1163,8 +1140,6 @@ class HPDLReader:
                         elif isinstance(action, model.DurativeAction):
                             # TODO: There should be another way for this
                             # Create dict with params and its types
-                            # Can't use action._parameters as it returns
-                            # .Parameter instead of ._UserType
                             params = OrderedDict(
                                 [(k, v.type) for k, v in action._parameters.items()]
                             )

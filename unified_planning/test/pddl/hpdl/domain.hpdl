@@ -140,8 +140,6 @@
       :precondition (and  (at ?p - person ?c1 - city)
                           (at ?a - aircraft ?c1 - city)
                           (otro ?a ?a)
-                          ; FIXME: This fails, related with TODO _parse_params_and_types
-                          ; (distance ?c2 ?c3 - city)
                     )
               
       :tasks (
