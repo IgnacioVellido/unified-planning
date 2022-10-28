@@ -986,6 +986,7 @@ class HPDLReader:
 
     # _________________________________________________________
 
+    # TODO: Wait for python-fluents discussion
     def _parse_function_code(
         self, fluent: model.Fluent, code: str
     ) -> model.SimulatedEffect:
@@ -1012,13 +1013,6 @@ class HPDLReader:
 
         return model.SimulatedEffect([fluent(*fluent.signature)], _inner_fun)
 
-        # for p in params:
-        #     print("Param", p)
-
-        # code_clean = code.replace(" ", "")
-
-        # def _internal_function(problem, state, actual_params):
-        #     return eval(code)
 
     # NOTE: Derived are declared in :predicates, so no need to add
     # fluent to problem here, they are already in there
