@@ -992,9 +992,8 @@ class HPDLReader:
     ) -> model.SimulatedEffect:
 
         # Replace ?var with var
-        code_sus = code
         for param in fluent.signature:
-            code_sus = code_sus.replace(f"?{param.name}", f"{param.name}")
+            code = code.replace(f"?{param.name}", f"{param.name}")
 
         # Dont judge me
         def _inner_fun(
@@ -1009,10 +1008,18 @@ class HPDLReader:
                 ).constant_value()
 
             # Dont judge me 2
-            return eval(code_sus, {}, values)
+            # TODO: the function must return a list of values that correspond to
+            # the input fluents.
+            # Example:
+            # def fun(problem, state, actual_params):
+            #     value = state.get_value(battery_charge(actual_params.get(robot))).constant_value()
+            #     return [Int(value - 10)]
+            # move.set_simulated_effect(SimulatedEffect([battery_charge(robot)], fun))
+            return eval(code, {}, values)
 
+        # TODO: An action only have one simulatedEffect therefore we have to detect every code_function called
+        # On the effects of the action and merge them into one simulatedEffect
         return model.SimulatedEffect([fluent(*fluent.signature)], _inner_fun)
-
 
     # NOTE: Derived are declared in :predicates, so no need to add
     # fluent to problem here, they are already in there
