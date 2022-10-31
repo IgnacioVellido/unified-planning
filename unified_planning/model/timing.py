@@ -14,6 +14,7 @@
 #
 
 
+from datetime import date
 from unified_planning.environment import Environment
 from unified_planning.model.fnode import FNode
 from enum import Enum, auto
@@ -101,7 +102,7 @@ class Timing:
     A `GLOBAL_START Timepoint` with a `delay` of `5` means `5` units of time after the start of the `Plan`.
     """
 
-    def __init__(self, delay: Union[int, Fraction, FNode], timepoint: Timepoint):
+    def __init__(self, delay: Union[int, Fraction, FNode, date], timepoint: Timepoint):
         self._timepoint = timepoint
         self._delay = delay
 

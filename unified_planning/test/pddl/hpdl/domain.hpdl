@@ -142,8 +142,8 @@
               
               ; Testing time management
               (
-                ; (and (< ?end 25) (< ?dur 3))
-                (and (> ?start 25) (= ?dur (+ (boarding-time) 5)))
+                (and (> ?start '2022-10-31 00:00:00') (= ?dur (+ (boarding-time) 5)))
+                ; (and (> ?start 25) (= ?dur (+ (boarding-time) 5)))
                 (embarcar-pasajeros ?a ?c1 ?c)
               )
 
