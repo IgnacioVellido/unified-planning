@@ -230,6 +230,7 @@ class Interval:
         is_left_open: bool = False,
         is_right_open: bool = False,
     ):
+        # TODO: Verify FNode returns a number?
         self._lower = lower
         self._upper = upper
         self._is_left_open = is_left_open
