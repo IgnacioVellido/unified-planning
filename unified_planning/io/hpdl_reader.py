@@ -1247,7 +1247,7 @@ class HPDLReader:
                 else: # restriction < var
                     constraint = model.LeftOpenTimeInterval(lower,upper)
             elif "==" in e_str:
-                constraint = lower
+                constraint = model.FixedDuration(lower)
             else:
                 raise SyntaxError(f"Not able to handle: {e_str}")
 
