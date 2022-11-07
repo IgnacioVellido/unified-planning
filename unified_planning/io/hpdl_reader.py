@@ -1186,12 +1186,11 @@ class HPDLReader:
 
         Results read as:
 
-        - duration = (start + 7, end]
+        - duration = (7, global_end]
 
-            duration must start at least with a delay of 7 time units behind the
-            expected normal, so duration can be lower or equal than 7
+            duration must take more than 7 time units
         
-        - end = global_start + 40
+        - end = [global_start + 40, global_end]
         
             end must happen 40 time units after the start of the plan
         """
@@ -1216,21 +1215,21 @@ class HPDLReader:
 
             # Set range bounds of restriction
             if 'start' in var:
-                upper = model.StartTiming()
+                upper = model.GlobalStartTiming() if less_than else model.GlobalEndTiming()
                 lower = model.GlobalStartTiming(restriction)
             elif 'end' in var:
-                upper = model.EndTiming()
+                upper = model.GlobalStartTiming() if less_than else model.GlobalEndTiming()
                 lower = model.GlobalStartTiming(restriction)
             elif 'dur' in var:
                 if "<" in e_str : # Includes <=
                     if less_than: # var <= restriction
-                        upper = model.StartTiming()
-                        lower = model.StartTiming(restriction)
+                        upper = model.GlobalStartTiming()
+                        lower = restriction
                     else: # restriction <= var
-                        upper = model.EndTiming()
-                        lower = model.StartTiming(restriction)
+                        upper = model.GlobalEndTiming()
+                        lower = restriction
                 elif "==" in e_str:
-                    lower = model.StartTiming(restriction)
+                    lower = restriction
                 else:
                     raise SyntaxError(f"Not able to handle: {e_str}")
             else:
