@@ -1222,10 +1222,10 @@ class HPDLReader:
                 lower = model.GlobalStartTiming(restriction)
             elif 'dur' in var:
                 if "<" in e_str : # Includes <=
-                    if less_than: # var <= restriction
+                    if less_than: # ?var <= restriction
                         upper = model.GlobalStartTiming()
                         lower = restriction
-                    else: # restriction <= var
+                    else: # restriction <= ?var
                         upper = model.GlobalEndTiming()
                         lower = restriction
                 elif "==" in e_str:
@@ -1237,27 +1237,30 @@ class HPDLReader:
 
             # Get interval
             if "<=" in e_str:
-                if less_than: # var <= restriction
+                if less_than: # ?var <= restriction
                     constraint = model.ClosedTimeInterval(upper,lower)
-                else: # restriction <= var
+                else: # restriction <= ?var
                     constraint = model.ClosedTimeInterval(lower,upper)
             elif "<" in e_str:
-                if less_than:  # var < restriction
+                if less_than:  # ?var < restriction
                     constraint = model.RightOpenTimeInterval(upper,lower)
-                else: # restriction < var
+                else: # restriction < ?var
                     constraint = model.LeftOpenTimeInterval(lower,upper)
             elif "==" in e_str:
-                constraint = model.FixedDuration(lower)
+                constraint = model.ClosedTimeInterval(lower,lower)
+                # CHECK: Maybe FixedDuration(lower)?
+                # Above is ClosedTimeInterval for consistency with the rest of
+                # TimeInterval
             else:
                 raise SyntaxError(f"Not able to handle: {e_str}")
 
             # Add interval to subtask
             if 'start' in var:
-                subtask.set_start_constraint(constraint)
+                subtask.set_start_constraint(constraint, less_than)
             elif 'end' in var:
-                subtask.set_end_constraint(constraint)
+                subtask.set_end_constraint(constraint, less_than)
             elif 'dur' in var:
-                subtask.set_duration_constraint(constraint)
+                subtask.set_duration_constraint(constraint, less_than)
 
 
 

@@ -163,10 +163,25 @@
                 (>= 6 ?dur)
                 (desembarcar-pasajeros ?a ?c)
               )
+
+              ; Adding two at the same time for one time variable
               (
-                (> ?dur 7)
+                (and (>= ?start 7) (<= ?start (* 2 (slow-speed ?a))))
                 (desembarcar-pasajeros ?a ?c)
               )
+              ; (
+              ;   (and (> ?start (* 2 (slow-speed ?a))) (< ?start 23))
+              ;   (desembarcar-pasajeros ?a ?c)
+              ; )
+              ; (
+              ;   (and (>= ?start (* 2 (slow-speed ?a))) (< ?start (* 3 (slow-speed ?a))))
+              ;   (desembarcar-pasajeros ?a ?c)
+              ; )
+
+              ; (
+              ;   (and (> ?start 7) (<= ?start 23))
+              ;   (desembarcar-pasajeros ?a ?c)
+              ; )
             )
     )
 

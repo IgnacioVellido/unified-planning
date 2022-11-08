@@ -27,6 +27,7 @@ from unified_planning.model.types import Type
 from unified_planning.model.expression import Expression
 from unified_planning.model.parameter import Parameter
 
+from unified_planning.model.timing import TimeInterval
 
 class Task:
     """Represents an abstract task."""
@@ -117,16 +118,9 @@ class Subtask:
             self._ident = f"_t{_task_id_counter}"
         self._args = self._env.expression_manager.auto_promote(*args)
 
-        # TODO: Time restrictions
-        self._duration_const: "up.model.timing.DurationInterval" = (
-            up.model.timing.FixedDuration(self._env.expression_manager.Int(0))
-        )
-        self._start_const: "up.model.timing.Timepoint" = (
-            Timepoint(TimepointKind.START, container=self.identifier)
-        )
-        self._end_const: "up.model.timing.Timepoint" = (
-            Timepoint(TimepointKind.END, container=self.identifier)
-        )
+        self._duration_const: "up.model.timing.DurationInterval" = None
+        self._start_const: "up.model.timing.Timepoint" = None
+        self._end_const: "up.model.timing.Timepoint" = None
         assert len(self._args) == len(self._task.parameters)
 
     def __repr__(self):
@@ -134,9 +128,12 @@ class Subtask:
         params = ", ".join([str(a) for a in self._args])
         s.append(f"{self.identifier}: {self._task.name}({params})\n")
         s.append("        time_constraints = [\n")
-        s.append(f"          start = {str(self._start_const)}\n")
-        s.append(f"          end = {str(self._end_const)}\n")
-        s.append(f"          duration = {str(self._duration_const)}\n")
+        if self._start_const is not None:
+            s.append(f"          start = {str(self._start_const)}\n")
+        if self._end_const is not None:
+            s.append(f"          end = {str(self._end_const)}\n")
+        if self._duration_const is not None:
+            s.append(f"          duration = {str(self._duration_const)}\n")
         s.append("        ]")
         return "".join(s)
 
@@ -176,29 +173,97 @@ class Subtask:
         """Timepoint representing the task's end time."""
         return Timepoint(TimepointKind.END, container=self.identifier)
 
-    def set_start_constraint(self, start_const: "up.model.timing.GlobalStartTiming"):
+    def set_start_constraint(
+        self,
+        start_const: "up.model.timing.TimeInterval",
+        less_than: bool
+    ):
         """
-        Sets the `start point` for this `action`.
+        Sets a `start time constraint` for this `action`.
 
-        :param start: The new `start point` of this `action`.
+        :param start_const: The new `start constraint` of this `action`.
+        :param less_than: If new constraint is the result of `<` or `<=`.
         """
         # TODO: Make any needed verification
-        self._start_const = start_const
+        if self._start_const is not None:
+            self._start_const = self._join_time_constraints(
+                self._start_const,
+                start_const,
+                less_than
+            )
+        else:
+            self._start_const = start_const
 
-    def set_end_constraint(self, end_const: "up.model.timing.GlobalStartTiming"):
+    def set_end_constraint(
+        self,
+        end_const: "up.model.timing.TimeInterval",
+        less_than: bool
+    ):
         """
-        Sets the `start point` for this `action`.
+        Sets a `end time constraint` for this `action`.
 
-        :param start: The new `start point` of this `action`.
+        :param end_const: The new `end constraint` of this `action`.
+        :param less_than: If new constraint is the result of `<` or `<=`.
         """
         # TODO: Make any needed verification
-        self._end_const = end_const
+        if self._end_const is not None:
+            self._end_const = self._join_time_constraints(
+                self._end_const,
+                end_const,
+                less_than
+            )
+        else:
+            self._end_const = end_const
 
-    def set_duration_constraint(self, duration_const: "up.model.timing.DurationInterval"):
+    def set_duration_constraint(
+        self,
+        duration_const: "up.model.timing.TimeInterval", # TODO: Not sure about this type
+        less_than: bool = False
+    ):
         """
-        Sets the `duration interval` for this `action`.
+        Sets a `duration time constraint` for this `action`.
 
-        :param duration: The new `duration interval` of this `action`.
+        :param duration_const: The new `duration constraint` of this `action`.
+        :param less_than: If new constraint is the result of `<` or `<=`.
         """
         # TODO: Make any needed verification
-        self._duration_const = duration_const
+        if self._duration_const is not None:
+            self._duration_const = self._join_time_constraints(
+                self._duration_const,
+                duration_const,
+                less_than
+            )
+        else:
+            self._duration_const = duration_const
+
+
+    def _join_time_constraints(self, t_old, t_new, less_than):
+        """
+        Assumes neither t_old or t_new is an assignment constraint
+        (e.g. (= ?start 2))
+
+        :param t_old: Constraint already stored.
+        :param t_new: New time constraint.
+        :param less_than: If new constraint is the result of `<` or `<=`.
+        """
+        if less_than: # We assume t_old is the opposite (< if >, > if <)
+            lower = t_old.lower
+            is_left_open = t_old._is_left_open
+
+            upper = t_new.upper
+            is_right_open = t_new._is_right_open
+        else:
+            lower = t_new.lower
+            is_left_open = t_new._is_left_open
+
+            upper = t_old.upper
+            is_right_open = t_old._is_right_open
+
+        # TODO: Shouldn't it be DurationInterval if changing duration?
+        # It only "accepts" FNode though
+        return TimeInterval(
+            lower,
+            upper,
+            is_left_open,
+            is_right_open
+        )
