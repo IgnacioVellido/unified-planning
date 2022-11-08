@@ -118,9 +118,9 @@ class Subtask:
             self._ident = f"_t{_task_id_counter}"
         self._args = self._env.expression_manager.auto_promote(*args)
 
-        self._duration_const: "up.model.timing.DurationInterval" = None
-        self._start_const: "up.model.timing.Timepoint" = None
-        self._end_const: "up.model.timing.Timepoint" = None
+        self._duration_const: "up.model.timing.TimeInterval" = None
+        self._start_const: "up.model.timing.TimeInterval" = None
+        self._end_const: "up.model.timing.TimeInterval" = None
         assert len(self._args) == len(self._task.parameters)
 
     def __repr__(self):
