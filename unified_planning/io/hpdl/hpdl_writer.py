@@ -16,6 +16,12 @@ from unified_planning.model import (
     Problem,
     Object,
 )
+from unified_planning.model.htn import(
+    Task,
+    TaskNetwork,
+    Method,
+    HierarchicalProblem
+)
 from unified_planning.exceptions import (
     UPTypeError,
     UPProblemDefinitionError,
@@ -110,6 +116,9 @@ INITIAL_LETTER: Dict[type, str] = {
     Parameter: "p",
     Problem: "p",
     Object: "o",
+    Task: "t",
+    TaskNetwork: "t",
+    Method: "m",
 }
 
 
