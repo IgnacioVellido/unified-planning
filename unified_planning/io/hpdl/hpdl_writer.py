@@ -461,6 +461,10 @@ class HDDLWriter:
             f' (:functions {" ".join(functions)})\n' if len(functions) > 0 else ""
         )
 
+        self._write_actions(out)
+        out.write(")\n")
+
+    def _write_actions(self, out: IO[str]):
         converter = ConverterToPDDLString(self.problem.env, self._get_mangled_name)
         costs = {}
         metrics = self.problem.quality_metrics
@@ -479,7 +483,7 @@ class HDDLWriter:
             raise up.exceptions.UPUnsupportedProblemTypeError(
                 "Only one metric is supported!"
             )
-
+            
         for a in self.problem.actions:
             if isinstance(a, up.model.InstantaneousAction):
                 out.write(f" (:action {self._get_mangled_name(a)}")
@@ -604,7 +608,6 @@ class HDDLWriter:
                 out.write(")\n")
             else:
                 raise NotImplementedError
-        out.write(")\n")
 
     def _write_problem(self, out: IO[str]):
         if self.problem.name is None:
