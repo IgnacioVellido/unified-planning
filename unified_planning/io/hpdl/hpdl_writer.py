@@ -288,10 +288,14 @@ class ConverterToPDDLString(walkers.DagWalker):
         return f"(= {args[0]} {args[1]})"
 
 
-class PDDLWriter:
+class HDDLWriter:
     """This class can be used to write a :class:`~unified_planning.model.Problem` in `PDDL`."""
 
     def __init__(self, problem: "up.model.Problem", needs_requirements: bool = True):
+        if not isinstance(problem, HierarchicalProblem):
+            raise UPProblemDefinitionError(
+                "The given problem is not a HierarchicalProblem, use PDDLWriter intead."
+            )
         self.problem = problem
         self.problem_kind = self.problem.kind
         self.needs_requirements = needs_requirements
@@ -319,7 +323,7 @@ class PDDLWriter:
                 "up.model.Variable",
             ],
         ] = {}
-        # those 2 maps are "simmetrical", meaning that "(otn[k] == v) implies (nto[v] == k)"
+        # those 2 maps are "symmetrical", meaning that "(otn[k] == v) implies (nto[v] == k)"
         self.domain_objects: Optional[Dict[_UserType, Set[Object]]] = None
 
     def _write_domain(self, out: IO[str]):
@@ -334,7 +338,7 @@ class PDDLWriter:
         obe = ObjectsExtractor()
         out.write("(define ")
         if self.problem.name is None:
-            name = "pddl"
+            name = "hpdl"
         else:
             name = _get_pddl_name(self.problem)
         out.write(f"(domain {name}-domain)\n")
@@ -372,6 +376,10 @@ class PDDLWriter:
                 or self.problem_kind.has_plan_length()
             ):
                 out.write(" :action-costs")
+            # TODO: Check if metatasks (modify problem_kind.py)
+            # TODO: Check if python-fluents (wait for discussion)
+            # if self.problem_kind.has_hierarchical() # This is checked on init
+            out.write(" :htn-expansion")
             out.write(")\n")
 
         if self.problem_kind.has_hierarchical_typing():
