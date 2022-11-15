@@ -357,7 +357,7 @@ class HPDLWriter:
             self._write_constants(out)
 
         self._write_fluents(out)
-        # self._write_tasks(out)
+        self._write_tasks(out)
         self._write_actions(out)
         out.write(")\n")
 
@@ -479,11 +479,6 @@ class HPDLWriter:
             f' (:functions {functions_str}\n )\n' if len(functions) > 0 else ""
         )
 
-    def _write_tasks(self, out:IO[str]):
-        # TODO
-        pass
-
-
     def _write_parameters(self, out: IO[str], parameters):
         for ap in parameters:
             if ap.type.is_user_type():
@@ -493,6 +488,62 @@ class HPDLWriter:
             else:
                 raise UPTypeError("PDDL supports only user type parameters")
 
+    # TODO: Put proper indentation
+    # TODO: Ordering
+    # TODO: Time constraints
+
+    # TODO: What happens with variables not defined on :parameters and used in
+    # multiple places??
+    def _write_tasks(self, out:IO[str]):
+        # TODO
+        converter = ConverterToPDDLString(self.problem.env, self._get_mangled_name)
+
+        # Get methods name of each task
+        methods = dict((t.name, []) for t in self.problem.tasks)
+        for m in self.problem.methods:
+            methods[m.task.name].append(m.name)
+
+        # Print tasks
+        for t in self.problem.tasks:
+            out.write(f" (:task {self._get_mangled_name(t)}")
+            out.write(f"\n  :parameters (")
+            self._write_parameters(out, t.parameters)
+            out.write(")")
+
+            # Print methods
+            for m_name in methods[t.name]:
+                m = self.problem.method(m_name)
+                out.write(f"\n  (:method {self._get_mangled_name(m)}")
+                # out.write(f"\n  :parameters (")
+                
+                # TODO: Check if SIADEX needs precondition tag even if empty
+                # TODO: All methods contains only one and precondition, split
+                # TODO: Will likely need to print variable type too
+                if len(m.preconditions) > 0:
+                    precondition_str = "\n  ".join([converter.convert(p) for p in m.preconditions])
+                    out.write(
+                        f'\n   :precondition (and {precondition_str})'
+                    )
+
+                # Subtasks
+                # [(s.task.name + "(" + ")") for s in m.subtasks]
+                # subtasks_str = "\n    ".join([("(" + s.task.name + ")") for s in m.subtasks])
+                def _subtasks_to_str(subtask):
+                    print(subtask)
+                    s = f"({subtask.name} "
+                    for ap in subtask.parameters: # Type needed for variables not defined in :parameters
+                        s += f"{self._get_mangled_name(ap)} - {self._get_mangled_name(ap.type)} "
+                    return s+")"
+
+                subtasks_str = "\n    ".join([_subtasks_to_str(s.task) for s in m.subtasks])
+                out.write(
+                    f'\n   :tasks (\n    {subtasks_str}\n   )'
+                )
+
+                out.write("\n  )")
+
+
+            out.write("\n )\n")
 
     def _write_actions(self, out: IO[str]):
         converter = ConverterToPDDLString(self.problem.env, self._get_mangled_name)
