@@ -344,44 +344,63 @@ class HPDLWriter:
         out.write(f"(domain {name}-domain)\n")
 
         if self.needs_requirements:
-            out.write(" (:requirements :strips")
-            if self.problem_kind.has_flat_typing():
-                out.write(" :typing")
-            if self.problem_kind.has_negative_conditions():
-                out.write(" :negative-preconditions")
-            if self.problem_kind.has_disjunctive_conditions():
-                out.write(" :disjunctive-preconditions")
-            if self.problem_kind.has_equality():
-                out.write(" :equality")
-            if (
-                self.problem_kind.has_continuous_numbers()
-                or self.problem_kind.has_discrete_numbers()
-            ):
-                out.write(" :numeric-fluents")
-            if self.problem_kind.has_conditional_effects():
-                out.write(" :conditional-effects")
-            if self.problem_kind.has_existential_conditions():
-                out.write(" :existential-preconditions")
-            if self.problem_kind.has_universal_conditions():
-                out.write(" :universal-preconditions")
-            if (
-                self.problem_kind.has_continuous_time()
-                or self.problem_kind.has_discrete_time()
-            ):
-                out.write(" :durative-actions")
-            if self.problem_kind.has_duration_inequalities():
-                out.write(" :duration-inequalities")
-            if (
-                self.problem_kind.has_actions_cost()
-                or self.problem_kind.has_plan_length()
-            ):
-                out.write(" :action-costs")
-            # TODO: Check if metatasks (modify problem_kind.py)
-            # TODO: Check if python-fluents (wait for discussion)
-            # if self.problem_kind.has_hierarchical() # This is checked on init
-            out.write(" :htn-expansion")
-            out.write(")\n")
+            self._write_requirements(out)
 
+        self._write_types(out)
+
+        if self.domain_objects is None:
+            # This method populates the self._domain_objects map
+            self._populate_domain_objects(obe)
+        assert self.domain_objects is not None
+
+        if len(self.domain_objects) > 0:
+            self._write_constants(out)
+
+        self._write_fluents(out)
+
+        self._write_actions(out)
+        out.write(")\n")
+
+    def _write_requirements(self, out: IO[str]):
+        out.write(" (:requirements :strips")
+        if self.problem_kind.has_flat_typing():
+            out.write(" :typing")
+        if self.problem_kind.has_negative_conditions():
+            out.write(" :negative-preconditions")
+        if self.problem_kind.has_disjunctive_conditions():
+            out.write(" :disjunctive-preconditions")
+        if self.problem_kind.has_equality():
+            out.write(" :equality")
+        if (
+            self.problem_kind.has_continuous_numbers()
+            or self.problem_kind.has_discrete_numbers()
+        ):
+            out.write(" :numeric-fluents")
+        if self.problem_kind.has_conditional_effects():
+            out.write(" :conditional-effects")
+        if self.problem_kind.has_existential_conditions():
+            out.write(" :existential-preconditions")
+        if self.problem_kind.has_universal_conditions():
+            out.write(" :universal-preconditions")
+        if (
+            self.problem_kind.has_continuous_time()
+            or self.problem_kind.has_discrete_time()
+        ):
+            out.write(" :durative-actions")
+        if self.problem_kind.has_duration_inequalities():
+            out.write(" :duration-inequalities")
+        if (
+            self.problem_kind.has_actions_cost()
+            or self.problem_kind.has_plan_length()
+        ):
+            out.write(" :action-costs")
+        # TODO: Check if metatasks (modify problem_kind.py)
+        # TODO: Check if python-fluents (wait for discussion)
+        # if self.problem_kind.has_hierarchical() # This is checked on init
+        out.write(" :htn-expansion")
+        out.write(")\n")
+
+    def _write_types(self, out: IO[str]):
         if self.problem_kind.has_hierarchical_typing():
             user_types_hierarchy = self.problem.user_types_hierarchy
             out.write(f" (:types\n")
@@ -409,20 +428,16 @@ class HPDLWriter:
                 else ""
             )
 
-        if self.domain_objects is None:
-            # This method populates the self._domain_objects map
-            self._populate_domain_objects(obe)
-        assert self.domain_objects is not None
+    def _write_constants(self, out: IO[str]):
+        out.write(" (:constants")
+        for ut, os in self.domain_objects.items():
+            if len(os) > 0:
+                out.write(
+                    f'\n   {" ".join([self._get_mangled_name(o) for o in os])} - {self._get_mangled_name(ut)}'
+                )
+        out.write("\n )\n")
 
-        if len(self.domain_objects) > 0:
-            out.write(" (:constants")
-            for ut, os in self.domain_objects.items():
-                if len(os) > 0:
-                    out.write(
-                        f'\n   {" ".join([self._get_mangled_name(o) for o in os])} - {self._get_mangled_name(ut)}'
-                    )
-            out.write("\n )\n")
-
+    def _write_fluents(self, out: IO[str]):
         predicates = []
         functions = []
         for f in self.problem.fluents:
@@ -460,9 +475,6 @@ class HPDLWriter:
         out.write(
             f' (:functions {" ".join(functions)})\n' if len(functions) > 0 else ""
         )
-
-        self._write_actions(out)
-        out.write(")\n")
 
     def _write_actions(self, out: IO[str]):
         converter = ConverterToPDDLString(self.problem.env, self._get_mangled_name)
@@ -610,6 +622,7 @@ class HPDLWriter:
                 raise NotImplementedError
 
     def _write_problem(self, out: IO[str]):
+        return out
         if self.problem.name is None:
             name = "pddl"
         else:
