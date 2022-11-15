@@ -488,6 +488,13 @@ class HPDLWriter:
             else:
                 raise UPTypeError("PDDL supports only user type parameters")
 
+
+    def _subtasks_to_str(self,subtask):
+        s = f"({subtask.name} "
+        for ap in subtask.parameters: # Type needed for variables not defined in :parameters
+            s += f"{self._get_mangled_name(ap)} - {self._get_mangled_name(ap.type)} "
+        return s+")"
+
     # TODO: Put proper indentation
     # TODO: Ordering
     # TODO: Time constraints
@@ -495,7 +502,6 @@ class HPDLWriter:
     # TODO: What happens with variables not defined on :parameters and used in
     # multiple places??
     def _write_tasks(self, out:IO[str]):
-        # TODO
         converter = ConverterToPDDLString(self.problem.env, self._get_mangled_name)
 
         # Get methods name of each task
@@ -526,24 +532,15 @@ class HPDLWriter:
                     )
 
                 # Subtasks
-                # [(s.task.name + "(" + ")") for s in m.subtasks]
-                # subtasks_str = "\n    ".join([("(" + s.task.name + ")") for s in m.subtasks])
-                def _subtasks_to_str(subtask):
-                    print(subtask)
-                    s = f"({subtask.name} "
-                    for ap in subtask.parameters: # Type needed for variables not defined in :parameters
-                        s += f"{self._get_mangled_name(ap)} - {self._get_mangled_name(ap.type)} "
-                    return s+")"
-
-                subtasks_str = "\n    ".join([_subtasks_to_str(s.task) for s in m.subtasks])
+                subtasks_str = "\n    ".join([self._subtasks_to_str(s.task) for s in m.subtasks])
                 out.write(
                     f'\n   :tasks (\n    {subtasks_str}\n   )'
                 )
 
                 out.write("\n  )")
 
-
             out.write("\n )\n")
+
 
     def _write_actions(self, out: IO[str]):
         converter = ConverterToPDDLString(self.problem.env, self._get_mangled_name)
@@ -682,76 +679,83 @@ class HPDLWriter:
             else:
                 raise NotImplementedError
 
+    def _write_objects(self, out: IO[str]):
+        out.write(" (:objects")
+        for t in self.problem.user_types:
+            constants_of_this_type = self.domain_objects.get(
+                cast(_UserType, t), None
+            )
+            if constants_of_this_type is None:
+                objects = [o for o in self.problem.all_objects if o.type == t]
+            else:
+                objects = [
+                    o
+                    for o in self.problem.all_objects
+                    if o.type == t and o not in constants_of_this_type
+                ]
+            if len(objects) > 0:
+                out.write(
+                    f'\n   {" ".join([self._get_mangled_name(o) for o in objects])} - {self._get_mangled_name(t)}'
+                )
+        out.write("\n )\n")
+
+    def _write_init(self, out: IO[str]):
+        converter = ConverterToPDDLString(self.problem.env, self._get_mangled_name)
+
+        out.write(" (:init")
+        # FIXME: Why are we calling initial_values? It's extremely slow
+        # for f, v in self.problem.initial_values.items():
+        # Can't we use explicit_initial_values?
+        for f, v in self.problem.explicit_initial_values.items():
+            # TODO: (at start), (between)
+            if v.is_true():
+                out.write(f"\n  {converter.convert(f)}")
+            elif v.is_false():
+                pass
+            else:
+                out.write(f"\n  (= {converter.convert(f)} {converter.convert(v)})")
+        if self.problem.kind.has_actions_cost():
+            out.write(f"\n  (= (total-cost) 0)")
+        out.write("\n )\n")
+
+    # FIXME
     def _write_problem(self, out: IO[str]):
-        # TODO: Refactor
-        # FIXME
-        return out
         if self.problem.name is None:
             name = "pddl"
         else:
             name = _get_pddl_name(self.problem)
         out.write(f"(define (problem {name}-problem)\n")
         out.write(f" (:domain {name}-domain)\n")
+
+        # TODO: :customization
+
         if self.domain_objects is None:
             # This method populates the self._domain_objects map
             self._populate_domain_objects(ObjectsExtractor())
         assert self.domain_objects is not None
         if len(self.problem.user_types) > 0:
-            out.write(" (:objects")
-            for t in self.problem.user_types:
-                constants_of_this_type = self.domain_objects.get(
-                    cast(_UserType, t), None
-                )
-                if constants_of_this_type is None:
-                    objects = [o for o in self.problem.all_objects if o.type == t]
-                else:
-                    objects = [
-                        o
-                        for o in self.problem.all_objects
-                        if o.type == t and o not in constants_of_this_type
-                    ]
-                if len(objects) > 0:
-                    out.write(
-                        f'\n   {" ".join([self._get_mangled_name(o) for o in objects])} - {self._get_mangled_name(t)}'
-                    )
-            out.write("\n )\n")
-        converter = ConverterToPDDLString(self.problem.env, self._get_mangled_name)
-        out.write(" (:init")
-        for f, v in self.problem.initial_values.items():
-            if v.is_true():
-                out.write(f" {converter.convert(f)}")
-            elif v.is_false():
-                pass
-            else:
-                out.write(f" (= {converter.convert(f)} {converter.convert(v)})")
-        if self.problem.kind.has_actions_cost():
-            out.write(f" (= (total-cost) 0)")
-        out.write(")\n")
+            self._write_objects(out)
+
+        self._write_init(out) # FIXME
+        # print(self.problem.initial_values.items())
+
+        # Print task-goal
+        # TODO: Ordering
+        # TODO: Try to improve code (nested joins maybe)
+        subtasks_str = ""
+        for s in self.problem.task_network.subtasks:
+            subtasks_str += f'\n   ({s.task.name} {" ".join([str(p) for p in s.parameters])})'
+
         out.write(
-            f' (:goal (and {" ".join([converter.convert(p) for p in self.problem.goals])}))\n'
+            f' (:tasks-goal\n  :tasks ({subtasks_str}\n  )\n )\n'
         )
+    
         metrics = self.problem.quality_metrics
-        if len(metrics) == 1:
-            metric = metrics[0]
-            out.write(" (:metric ")
-            if isinstance(metric, up.model.metrics.MinimizeExpressionOnFinalState):
-                out.write(f"minimize {converter.convert(metric.expression)}")
-            elif isinstance(metric, up.model.metrics.MaximizeExpressionOnFinalState):
-                out.write(f"maximize {converter.convert(metric.expression)}")
-            elif isinstance(metric, up.model.metrics.MinimizeActionCosts) or isinstance(
-                metric, up.model.metrics.MinimizeSequentialPlanLength
-            ):
-                out.write(f"minimize (total-cost)")
-            elif isinstance(metric, up.model.metrics.MinimizeMakespan):
-                out.write(f"minimize (total-time)")
-            else:
-                raise NotImplementedError
-            out.write(")\n")
-        elif len(metrics) > 1:
+        if len(metrics) > 0:
             raise up.exceptions.UPUnsupportedProblemTypeError(
-                "Only one metric is supported!"
+                "HPDL does not support metrics!"
             )
-        out.write(")\n")
+        out.write(")")
 
     def print_domain(self):
         """Prints to std output the `PDDL` domain."""

@@ -1141,56 +1141,59 @@ class HPDLReader:
             for var, kind in objects.items():
                 self.problem.add_object(model.Object(var, kind, self.problem.env))
 
+            # TODO: Why should we do this?
+            # We lose problem objects as it does some kind of grounding, and SIADEX
+            # does not need that
             # Add universal_assignments (forall, something-else?)
-            for action, eff_list in self.universal_assignments.items():
-                for eff in eff_list:
-                    # Parse the variable definition part and create 2 lists, the first one with the variable names,
-                    # the second one with the variable types.
-                    vars_string = " ".join(eff[1])
-                    vars_res = self._pp_parameters.parseString(vars_string)
-                    var_names: List[str] = []
-                    var_types: List["model.Type"] = []
+            # for action, eff_list in self.universal_assignments.items():
+            #     for eff in eff_list:
+            #         # Parse the variable definition part and create 2 lists, the first one with the variable names,
+            #         # the second one with the variable types.
+            #         vars_string = " ".join(eff[1])
+            #         vars_res = self._pp_parameters.parseString(vars_string)
+            #         var_names: List[str] = []
+            #         var_types: List["model.Type"] = []
 
-                    for g in vars_res["params"]:
-                        t = self.types_map[g[1] if len(g) > 1 else "object"]
-                        for o in g[0]:
-                            var_names.append(f"?{o}")
-                            var_types.append(t)
+            #         for g in vars_res["params"]:
+            #             t = self.types_map[g[1] if len(g) > 1 else "object"]
+            #             for o in g[0]:
+            #                 var_names.append(f"?{o}")
+            #                 var_types.append(t)
 
-                    # for each variable type, get all the objects of that type and calculate the cartesian
-                    # product between all the given objects and iterate over them, changing the variable assignments
-                    # in the added effect
-                    for objects in product(
-                        *(self.problem.objects(t) for t in var_types)
-                    ):
-                        assert len(var_names) == len(objects)
-                        assignments = {
-                            name: obj for name, obj in zip(var_names, objects)
-                        }
-                        if isinstance(action, model.InstantaneousAction):
-                            self._add_effect(
-                                action,
-                                self.types_map,
-                                None,
-                                eff[2],
-                                assignments=assignments,
-                            )
-                        elif isinstance(action, model.DurativeAction):
-                            # TODO: There should be another way for this
-                            # Create dict with params and its types
-                            params = OrderedDict(
-                                [(k, v.type) for k, v in action._parameters.items()]
-                            )
+            #         # for each variable type, get all the objects of that type and calculate the cartesian
+            #         # product between all the given objects and iterate over them, changing the variable assignments
+            #         # in the added effect
+            #         for objects in product(
+            #             *(self.problem.objects(t) for t in var_types)
+            #         ):
+            #             assert len(var_names) == len(objects)
+            #             assignments = {
+            #                 name: obj for name, obj in zip(var_names, objects)
+            #             }
+            #             if isinstance(action, model.InstantaneousAction):
+            #                 self._add_effect(
+            #                     action,
+            #                     self.types_map,
+            #                     None,
+            #                     eff[2],
+            #                     assignments=assignments,
+            #                 )
+            #             elif isinstance(action, model.DurativeAction):
+            #                 # TODO: There should be another way for this
+            #                 # Create dict with params and its types
+            #                 params = OrderedDict(
+            #                     [(k, v.type) for k, v in action._parameters.items()]
+            #                 )
 
-                            self._add_timed_effects(
-                                action,
-                                params,
-                                None,
-                                eff[2],
-                                assignments=assignments,
-                            )
-                        else:
-                            raise NotImplementedError
+            #                 self._add_timed_effects(
+            #                     action,
+            #                     params,
+            #                     None,
+            #                     eff[2],
+            #                     assignments=assignments,
+            #                 )
+            #             else:
+            #                 raise NotImplementedError
 
             # TODO: customization (time format/start/horizon/unit)
 
