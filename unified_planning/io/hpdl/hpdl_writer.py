@@ -469,11 +469,14 @@ class HPDLWriter:
                 raise UPTypeError("PDDL supports only boolean and numerical fluents")
         if self.problem.kind.has_actions_cost() or self.problem.kind.has_plan_length():
             functions.append("(total-cost)")
+
+        predicates_str = "\n  ".join(predicates)
+        functions_str = "\n  ".join(functions)
         out.write(
-            f' (:predicates {" ".join(predicates)})\n' if len(predicates) > 0 else ""
+            f' (:predicates {predicates_str}\n )\n' if len(predicates) > 0 else ""
         )
         out.write(
-            f' (:functions {" ".join(functions)})\n' if len(functions) > 0 else ""
+            f' (:functions {functions_str}\n )\n' if len(functions) > 0 else ""
         )
 
     def _write_actions(self, out: IO[str]):
@@ -622,6 +625,8 @@ class HPDLWriter:
                 raise NotImplementedError
 
     def _write_problem(self, out: IO[str]):
+        # TODO: Refactor
+        # FIXME
         return out
         if self.problem.name is None:
             name = "pddl"
