@@ -288,7 +288,7 @@ class ConverterToPDDLString(walkers.DagWalker):
         return f"(= {args[0]} {args[1]})"
 
 
-class HDDLWriter:
+class HPDLWriter:
     """This class can be used to write a :class:`~unified_planning.model.Problem` in `PDDL`."""
 
     def __init__(self, problem: "up.model.Problem", needs_requirements: bool = True):
