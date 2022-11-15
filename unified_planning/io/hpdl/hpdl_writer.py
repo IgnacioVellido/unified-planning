@@ -357,7 +357,7 @@ class HPDLWriter:
             self._write_constants(out)
 
         self._write_fluents(out)
-
+        # self._write_tasks(out)
         self._write_actions(out)
         out.write(")\n")
 
@@ -479,6 +479,21 @@ class HPDLWriter:
             f' (:functions {functions_str}\n )\n' if len(functions) > 0 else ""
         )
 
+    def _write_tasks(self, out:IO[str]):
+        # TODO
+        pass
+
+
+    def _write_parameters(self, out: IO[str], parameters):
+        for ap in parameters:
+            if ap.type.is_user_type():
+                out.write(
+                    f"{self._get_mangled_name(ap)} - {self._get_mangled_name(ap.type)} "
+                )
+            else:
+                raise UPTypeError("PDDL supports only user type parameters")
+
+
     def _write_actions(self, out: IO[str]):
         converter = ConverterToPDDLString(self.problem.env, self._get_mangled_name)
         costs = {}
@@ -503,13 +518,7 @@ class HPDLWriter:
             if isinstance(a, up.model.InstantaneousAction):
                 out.write(f" (:action {self._get_mangled_name(a)}")
                 out.write(f"\n  :parameters (")
-                for ap in a.parameters:
-                    if ap.type.is_user_type():
-                        out.write(
-                            f" {self._get_mangled_name(ap)} - {self._get_mangled_name(ap.type)}"
-                        )
-                    else:
-                        raise UPTypeError("PDDL supports only user type parameters")
+                self._write_parameters(out, a.parameters)
                 out.write(")")
                 if len(a.preconditions) > 0:
                     out.write(
@@ -544,17 +553,11 @@ class HPDLWriter:
                             f" (increase (total-cost) {converter.convert(costs[a])})"
                         )
                     out.write(")")
-                out.write(")\n")
+                out.write("  )\n")
             elif isinstance(a, DurativeAction):
                 out.write(f" (:durative-action {self._get_mangled_name(a)}")
                 out.write(f"\n  :parameters (")
-                for ap in a.parameters:
-                    if ap.type.is_user_type():
-                        out.write(
-                            f" {self._get_mangled_name(ap)} - {self._get_mangled_name(ap.type)}"
-                        )
-                    else:
-                        raise UPTypeError("PDDL supports only user type parameters")
+                self._write_parameters(out, a.parameters)
                 out.write(")")
                 l, r = a.duration.lower, a.duration.upper
                 if l == r:
@@ -571,9 +574,10 @@ class HPDLWriter:
                         out.write(f"(<= ?duration {converter.convert(r)})")
                     out.write(")")
                 if len(a.conditions) > 0:
-                    out.write(f"\n  :condition (and ")
+                    out.write(f"\n  :condition (and")
                     for interval, cl in a.conditions.items():
                         for c in cl:
+                            out.write("\n   ")
                             if interval.lower == interval.upper:
                                 if interval.lower.is_from_start():
                                     out.write(f"(at start {converter.convert(c)})")
@@ -585,32 +589,33 @@ class HPDLWriter:
                                 out.write(f"(over all {converter.convert(c)})")
                                 if not interval.is_right_open():
                                     out.write(f"(at end {converter.convert(c)})")
-                    out.write(")")
+                    out.write("\n  )")
                 if len(a.effects) > 0:
                     out.write("\n  :effect (and")
                     for t, el in a.effects.items():
                         for e in el:
+                            out.write("\n   ")
                             if t.is_from_start():
-                                out.write(f" (at start")
+                                out.write(f"(at start ")
                             else:
-                                out.write(f" (at end")
+                                out.write(f"(at end ")
                             if e.is_conditional():
-                                out.write(f" (when {converter.convert(e.condition)}")
+                                out.write(f"(when {converter.convert(e.condition)}")
                             if e.value.is_true():
-                                out.write(f" {converter.convert(e.fluent)}")
+                                out.write(f"{converter.convert(e.fluent)}")
                             elif e.value.is_false():
-                                out.write(f" (not {converter.convert(e.fluent)})")
+                                out.write(f"(not {converter.convert(e.fluent)})")
                             elif e.is_increase():
                                 out.write(
-                                    f" (increase {converter.convert(e.fluent)} {converter.convert(e.value)})"
+                                    f"(increase {converter.convert(e.fluent)} {converter.convert(e.value)})"
                                 )
                             elif e.is_decrease():
                                 out.write(
-                                    f" (decrease {converter.convert(e.fluent)} {converter.convert(e.value)})"
+                                    f"(decrease {converter.convert(e.fluent)} {converter.convert(e.value)})"
                                 )
                             else:
                                 out.write(
-                                    f" (assign {converter.convert(e.fluent)} {converter.convert(e.value)})"
+                                    f"(assign {converter.convert(e.fluent)} {converter.convert(e.value)})"
                                 )
                             if e.is_conditional():
                                 out.write(f")")
@@ -619,8 +624,9 @@ class HPDLWriter:
                         out.write(
                             f" (at end (increase (total-cost) {converter.convert(costs[a])}))"
                         )
-                    out.write(")")
-                out.write(")\n")
+                    out.write("\n  )")
+                
+                out.write("\n )\n")
             else:
                 raise NotImplementedError
 
