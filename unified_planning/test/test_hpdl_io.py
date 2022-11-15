@@ -20,10 +20,8 @@ import pytest
 import unified_planning
 from unified_planning.engines import PlanGenerationResultStatus
 
-# from unified_planning.io import HPDLReader, HPDLWriter
-from unified_planning.io.hpdl.hpdl_reader import HPDLReader
+from unified_planning.io.hpdl import HPDLReader, HPDLWriter
 
-# from unified_planning.io.hpdl_writer import HPDLWriter
 from unified_planning.model.problem_kind import full_numeric_kind
 from unified_planning.model.types import _UserType
 from unified_planning.shortcuts import *
@@ -144,3 +142,47 @@ class TestHpdlIO(TestCase):
             4, len(problem.method("check-interactions-avatar_wall_stepback").subtasks)
         )
         self.assertEqual(1, len(problem.task_network.subtasks))  # Goal
+
+    def test_hpdl_writer(self):
+        reader = HPDLReader()
+
+        domain_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "domain.hpdl")
+        problem_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "problem.hpdl")
+        problem = reader.parse_problem(domain_filename, problem_filename)
+
+        w = HPDLWriter(problem)
+
+        hpdl_domain = w.get_domain()
+        hpdl_problem = w.get_problem()
+
+        expected_domain = """(define (domain basic_with_object_constant-domain)
+ (:requirements :strips :typing :negative-preconditions)
+ (:types location)
+ (:constants
+   l1 - location
+ )
+ (:predicates (is_at ?loc - location))
+ (:action move
+  :parameters ( ?l_from - location ?l_to - location)
+  :precondition (and (is_at ?l_from) (not (is_at ?l_to)))
+  :effect (and (not (is_at ?l_from)) (is_at ?l_to)))
+ (:action move_to_l1
+  :parameters ( ?l_from - location)
+  :precondition (and (is_at ?l_from) (not (is_at l1)))
+  :effect (and (not (is_at ?l_from)) (is_at l1)))
+)
+"""
+        expected_problem = """(define (problem basic_with_object_constant-problem)
+ (:domain basic_with_object_constant-domain)
+ (:objects
+   l2 - location
+ )
+ (:init (is_at l1))
+ (:goal (and (is_at l2)))
+)
+"""
+        print(hpdl_domain)
+        print(hpdl_problem)
+
+        self.assertEqual(hpdl_domain, expected_domain)
+        self.assertEqual(hpdl_problem, expected_problem)
