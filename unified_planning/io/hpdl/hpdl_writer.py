@@ -521,29 +521,30 @@ class HPDLWriter:
                 self._write_parameters(out, a.parameters)
                 out.write(")")
                 if len(a.preconditions) > 0:
+                    precondition_str = "\n  ".join([converter.convert(p) for p in a.preconditions])
                     out.write(
-                        f'\n  :precondition (and {" ".join([converter.convert(p) for p in a.preconditions])})'
+                        f'\n  :precondition (and {precondition_str})'
                     )
                 if len(a.effects) > 0:
                     out.write("\n  :effect (and")
                     for e in a.effects:
                         if e.is_conditional():
-                            out.write(f" (when {converter.convert(e.condition)}")
+                            out.write(f"(when {converter.convert(e.condition)}")
                         if e.value.is_true():
-                            out.write(f" {converter.convert(e.fluent)}")
+                            out.write(f"{converter.convert(e.fluent)}")
                         elif e.value.is_false():
-                            out.write(f" (not {converter.convert(e.fluent)})")
+                            out.write(f"(not {converter.convert(e.fluent)})")
                         elif e.is_increase():
                             out.write(
-                                f" (increase {converter.convert(e.fluent)} {converter.convert(e.value)})"
+                                f"(increase {converter.convert(e.fluent)} {converter.convert(e.value)})"
                             )
                         elif e.is_decrease():
                             out.write(
-                                f" (decrease {converter.convert(e.fluent)} {converter.convert(e.value)})"
+                                f"(decrease {converter.convert(e.fluent)} {converter.convert(e.value)})"
                             )
                         else:
                             out.write(
-                                f" (assign {converter.convert(e.fluent)} {converter.convert(e.value)})"
+                                f"(assign {converter.convert(e.fluent)} {converter.convert(e.value)})"
                             )
                         if e.is_conditional():
                             out.write(f")")
