@@ -547,7 +547,7 @@ class HPDLWriter:
                 subtasks_str += "\n ".join([subtask_to_str(s, get_types) for s in g])
                 subtasks_str += "\n    ]\n"
             else: # Sequential
-                s = g[0] # Print subtask
+                s = g[0]
                 subtasks_str += subtask_to_str(s, get_types) + "\n"
 
         return subtasks_str
