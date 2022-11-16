@@ -183,7 +183,8 @@ class HPDLGrammar:
             + Group(
                 ZeroOrMore(
                     Group(
-                        # Ordering is defined with parallel [] or sequential ()
+                        # Ordering is defined with parallel [] or sequential in absence
+                        # Can't use () as it will collide with time constraints
                         Optional("[", default="(").setResultsName("ordering")
                         + OneOrMore(inline_def | subtask_def | time_rest_subt)
                         + Suppress(Optional("]"))
