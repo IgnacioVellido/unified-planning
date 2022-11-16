@@ -489,6 +489,69 @@ class HPDLWriter:
                 raise UPTypeError("PDDL supports only user type parameters")
 
 
+    def _get_subtasks_str(self, network: Union[TaskNetwork, Method], get_types: bool = False):
+        """Write subtasks ordered in HPDL style ([ for parallelism)"""
+        # TODO: Give property to const or something because this is not nice
+        def get_tags_const(const):
+            """Get str names of both tags in ordering constraint"""
+            return (const.arg(0).timing().timepoint.container,
+                    const.arg(1).timing().timepoint.container)
+
+        def subtask_to_str(s, get_types):
+            if get_types: # For domain subtasks
+                return f'    {self._subtasks_to_str(s.task)}'
+            else: # For problem task-goal
+                return f'    ({s.task.name} {" ".join([str(p) for p in s.parameters])})'    
+
+        subtask_len = len(network.subtasks)
+        if subtask_len == 0:
+            return ""
+
+        # Dict subtask_name -> order in task network
+        subtask_map = {}
+        for i, s in enumerate(network.subtasks):
+            subtask_map[s.identifier] = i
+
+        # Create matrix of restriction orders
+        matrix = []
+        for _ in range(subtask_len):
+            matrix.append([False]*subtask_len) # Empty row, all False
+
+        # Set True if constraint
+        constraints = network.constraints
+        for c in constraints:
+            t1, t2 = get_tags_const(c)
+            matrix[subtask_map[t1]][subtask_map[t2]] = True
+
+        # Create groups of parallel tasks based on matrix
+        subtasks = network.subtasks
+        groups = [[subtasks[0]]]
+        group_idx = 0
+        for row in range(1,subtask_len):
+            s = subtasks[row]
+
+            if matrix[row] == matrix[row-1]: # Both parallel, add to existing group
+                # Same rows means both have the same constraints, and are parallel
+                groups[group_idx].append(s)
+            else: # Both sequential, add to new group
+                group_idx += 1
+                groups.append([s])
+
+        # Print groups
+        subtasks_str = ""
+        for g in groups:
+            if len(g) == 0:
+                pass
+            elif len(g) > 1: # Parallels
+                subtasks_str += "    [\n "
+                subtasks_str += "\n ".join([subtask_to_str(s, get_types) for s in g])
+                subtasks_str += "\n    ]\n"
+            else: # Sequential
+                s = g[0] # Print subtask
+                subtasks_str += subtask_to_str(s, get_types) + "\n"
+
+        return subtasks_str
+
     def _subtasks_to_str(self,subtask):
         s = f"({subtask.name} "
         for ap in subtask.parameters: # Type needed for variables not defined in :parameters
@@ -532,9 +595,8 @@ class HPDLWriter:
                     )
 
                 # Subtasks
-                subtasks_str = "\n    ".join([self._subtasks_to_str(s.task) for s in m.subtasks])
                 out.write(
-                    f'\n   :tasks (\n    {subtasks_str}\n   )'
+                    f'\n   :tasks (\n{self._get_subtasks_str(m, get_types=True)}   )'
                 )
 
                 out.write("\n  )")
@@ -740,14 +802,8 @@ class HPDLWriter:
         # print(self.problem.initial_values.items())
 
         # Print task-goal
-        # TODO: Ordering
-        # TODO: Try to improve code (nested joins maybe)
-        subtasks_str = ""
-        for s in self.problem.task_network.subtasks:
-            subtasks_str += f'\n   ({s.task.name} {" ".join([str(p) for p in s.parameters])})'
-
         out.write(
-            f' (:tasks-goal\n  :tasks ({subtasks_str}\n  )\n )\n'
+            f' (:tasks-goal\n  :tasks (\n{self._get_subtasks_str(self.problem.task_network)}  )\n )\n'
         )
     
         metrics = self.problem.quality_metrics
