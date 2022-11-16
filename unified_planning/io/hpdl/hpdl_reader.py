@@ -1237,12 +1237,33 @@ class HPDLReader:
 
                 # All subtasks from the next iteration have sequential order with
                 # respect to the previous iteration
+                # TODO: Refactor, this looks ugly and is not easy to understand
                 if len(ordering) >= 2:
-                    for i in range(1, len(subtasks)):
+                    for i in range(1, len(subtasks)): # ordering[0]...ordering[n]
                         # Loop through subtasks of previous ordering
-                        for s1 in subtasks[i - 1][1]:
+                        if subtasks[i-1][0] == "(" and subtasks[i][0] == "(":
+                            # Both sequential, last vs first
+                            s1 = subtasks[i-1][1][-1] # Next ordering, subtask list, last task
+                            s2 = subtasks[i][1][0]
+                            self.problem.task_network.set_ordered(s1,s2)
+
+                        elif subtasks[i-1][0] == "[" and subtasks[i][0] == "(":
+                            # Parallel-sequential, all vs first
+                            s2 = subtasks[i][1][0]
+                            for s1 in subtasks[i - 1][1]:
+                                self.problem.task_network.set_ordered(s1,s2)
+                        
+                        elif subtasks[i-1][0] == "(" and subtasks[i][0] == "[": 
+                            # Sequential-parallel, last vs all
+                            s1 = subtasks[i-1][1][-1]
                             for s2 in subtasks[i][1]:
-                                self.problem.task_network.set_ordered(s1, s2)
+                                self.problem.task_network.set_ordered(s1,s2)
+                        
+                        else: # Both parallel, all vs all
+                            for s1 in subtasks[i - 1][1]:
+                                for s2 in subtasks[i][1]:
+                                    self.problem.task_network.set_ordered(s1,s2)
+                            
 
             self.has_actions_cost = (
                 self.has_actions_cost and self._problem_has_actions_cost(self.problem)
