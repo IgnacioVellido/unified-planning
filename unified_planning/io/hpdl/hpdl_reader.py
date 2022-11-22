@@ -124,6 +124,13 @@ class HPDLReader:
                 assert universal_assignments is not None
                 action_assignments = universal_assignments.setdefault(act, [])
                 action_assignments.append(exp)
+                # TODO: Add a Forall
+                # eff = (
+                #     self._parse_exp({}, exp, assignments, types_map),
+                #     self._em.TRUE(),
+                #     cond,
+                # )
+                # act.add_effect(*eff if timing is None else (timing, *eff))  # type: ignore
             else:
                 eff = (
                     self._parse_exp({}, exp, assignments, types_map),
@@ -150,7 +157,7 @@ class HPDLReader:
             elif op in self.derived:  # Check derived
                 for d in self.derived[op]:
                     res.append((model.StartTiming(), d))
-            elif op == "forall":
+            elif op == "forall": # TODO: Why don't we use _em.Forall
                 vars_string = " ".join(exp[1])
                 vars_res = self._pp_parameters.parseString(vars_string)
                 if vars is None:
@@ -235,6 +242,15 @@ class HPDLReader:
                 assert universal_assignments is not None
                 action_assignments = universal_assignments.setdefault(act, [])
                 action_assignments.append(eff)
+                # TODO: Use Forall
+                # self._add_effect(
+                #     act,
+                #     types_map,
+                #     universal_assignments,
+                #     eff,  # CHANGED
+                #     timing=model.EndTiming(),
+                #     assignments=assignments,
+                # )
             else:  # HPDL accept any exp, and considers (at end ...)
                 self._add_effect(
                     act,
@@ -465,6 +481,10 @@ class HPDLReader:
                 t = self.types_map[g[1] if len(g) > 1 else "object"]
                 for o in g[0]:
                     vars[o] = model.Variable(o, t, self._env)
+            # if exp[0] == "exists":
+            #     return self._em.Exists(exp[2], *vars), None
+            # else:
+            #     return self._em.Forall(exp[2], *vars), None
             return None, [(vars, exp, True), (vars, exp[2], False)]
         elif self.problem.has_fluent(exp[0]):  # fluent reference
             res = [(var, exp, True)]
@@ -590,6 +610,13 @@ class HPDLReader:
                 # action_assignments.append(exp)
 
                 # Returning and checking elsewhere
+                # eff = (
+                #     self._parse_exp({}, exp, assignments, available_params),
+                #     self._em.TRUE(),
+                #     cond,
+                #     None,
+                # )
+                # result.append(eff)
                 result.append(exp)
             else:
                 eff = (
@@ -685,6 +712,11 @@ class HPDLReader:
                 assert self.universal_assignments is not None
                 action_assignments = self.universal_assignments.setdefault(act, [])
                 action_assignments.append(f)
+                # TODO: Use Forall
+                # self._em.Forall(cond, *vars.values())
+                # self._add_effect(act, {}, {}, f, {}, None, {})
+                # act.add_effect(self._em.Forall(f), self._em.TRUE())
+                # act.add_effect(f[0], f[1])
             elif f[3] == "assign":
                 act.add_effect(f[0], f[1], f[2])
             elif f[3] == "increase":
@@ -1145,55 +1177,55 @@ class HPDLReader:
             # We lose problem objects as it does some kind of grounding, and SIADEX
             # does not need that
             # Add universal_assignments (forall, something-else?)
-            # for action, eff_list in self.universal_assignments.items():
-            #     for eff in eff_list:
-            #         # Parse the variable definition part and create 2 lists, the first one with the variable names,
-            #         # the second one with the variable types.
-            #         vars_string = " ".join(eff[1])
-            #         vars_res = self._pp_parameters.parseString(vars_string)
-            #         var_names: List[str] = []
-            #         var_types: List["model.Type"] = []
+            for action, eff_list in self.universal_assignments.items():
+                for eff in eff_list:
+                    # Parse the variable definition part and create 2 lists, the first one with the variable names,
+                    # the second one with the variable types.
+                    vars_string = " ".join(eff[1])
+                    vars_res = self._pp_parameters.parseString(vars_string)
+                    var_names: List[str] = []
+                    var_types: List["model.Type"] = []
 
-            #         for g in vars_res["params"]:
-            #             t = self.types_map[g[1] if len(g) > 1 else "object"]
-            #             for o in g[0]:
-            #                 var_names.append(f"?{o}")
-            #                 var_types.append(t)
+                    for g in vars_res["params"]:
+                        t = self.types_map[g[1] if len(g) > 1 else "object"]
+                        for o in g[0]:
+                            var_names.append(f"?{o}")
+                            var_types.append(t)
 
-            #         # for each variable type, get all the objects of that type and calculate the cartesian
-            #         # product between all the given objects and iterate over them, changing the variable assignments
-            #         # in the added effect
-            #         for objects in product(
-            #             *(self.problem.objects(t) for t in var_types)
-            #         ):
-            #             assert len(var_names) == len(objects)
-            #             assignments = {
-            #                 name: obj for name, obj in zip(var_names, objects)
-            #             }
-            #             if isinstance(action, model.InstantaneousAction):
-            #                 self._add_effect(
-            #                     action,
-            #                     self.types_map,
-            #                     None,
-            #                     eff[2],
-            #                     assignments=assignments,
-            #                 )
-            #             elif isinstance(action, model.DurativeAction):
-            #                 # TODO: There should be another way for this
-            #                 # Create dict with params and its types
-            #                 params = OrderedDict(
-            #                     [(k, v.type) for k, v in action._parameters.items()]
-            #                 )
+                    # for each variable type, get all the objects of that type and calculate the cartesian
+                    # product between all the given objects and iterate over them, changing the variable assignments
+                    # in the added effect
+                    for objects in product(
+                        *(self.problem.objects(t) for t in var_types)
+                    ):
+                        assert len(var_names) == len(objects)
+                        assignments = {
+                            name: obj for name, obj in zip(var_names, objects)
+                        }
+                        if isinstance(action, model.InstantaneousAction):
+                            self._add_effect(
+                                action,
+                                self.types_map,
+                                None,
+                                eff[2],
+                                assignments=assignments,
+                            )
+                        elif isinstance(action, model.DurativeAction):
+                            # TODO: There should be another way for this
+                            # Create dict with params and its types
+                            params = OrderedDict(
+                                [(k, v.type) for k, v in action._parameters.items()]
+                            )
 
-            #                 self._add_timed_effects(
-            #                     action,
-            #                     params,
-            #                     None,
-            #                     eff[2],
-            #                     assignments=assignments,
-            #                 )
-            #             else:
-            #                 raise NotImplementedError
+                            self._add_timed_effects(
+                                action,
+                                params,
+                                None,
+                                eff[2],
+                                assignments=assignments,
+                            )
+                        else:
+                            raise NotImplementedError
 
             # TODO: customization (time format/start/horizon/unit)
 
