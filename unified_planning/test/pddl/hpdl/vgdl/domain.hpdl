@@ -508,6 +508,7 @@
 						(= (coordinate_x ?x) (coordinate_x ?y))
 						(= (coordinate_y ?x) (coordinate_y ?y))
 						(not (= (coordinate_y ?x) (coordinate_y ?y)))
+						; This precondition purposely evaluates to false
 					)
 		:effect (
 				)
