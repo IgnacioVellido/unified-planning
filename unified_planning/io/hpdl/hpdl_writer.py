@@ -238,7 +238,18 @@ class ConverterToPDDLString(walkers.DagWalker):
         return f"{self.get_mangled_name(o)}"
 
     def walk_bool_constant(self, expression, args):
-        raise up.exceptions.UPUnreachableCodeError
+        # raise up.exceptions.UPUnreachableCodeError
+        if not expression.constant_value(): # = False
+            return "(< 1 0)"
+        else:
+            return "(> 1 0)"
+        # TODO: ASK WHAT TO DO WITH THIS
+        # This fails in VGDL, when we force backtracking, because it simplifies
+        # to false and here raises and exception
+        # e.g. (not (= (coordinate_y ?x) (coordinate_y ?y))) and (= (coordinate_y ?x) (coordinate_y ?y))
+        # 
+        # At the moment: Because we can't print True/False, printing predicate
+        # that evaluates to that
 
     def walk_real_constant(self, expression, args):
         assert len(args) == 0
