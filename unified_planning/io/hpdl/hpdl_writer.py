@@ -464,7 +464,7 @@ class HPDLWriter:
                     else:
                         raise UPTypeError("PDDL supports only user type parameters")
                 predicates.append(f'({self._get_mangled_name(f)}{"".join(params)})')
-            elif f.type.is_int_type() or f.type.is_real_type():
+            elif f.type.is_int_type() or f.type.is_real_type() or f.type.is_func_type():
                 params = []
                 i = 0
                 for param in f.signature:
@@ -476,6 +476,10 @@ class HPDLWriter:
                     else:
                         raise UPTypeError("PDDL supports only user type parameters")
                 functions.append(f'({self._get_mangled_name(f)}{"".join(params)})')
+
+                if f.type.is_func_type():
+                    print(f.code)
+                    functions.append('{\n    ' + f'{f.code}' + '}')
             else:
                 raise UPTypeError("PDDL supports only boolean and numerical fluents")
         if self.problem.kind.has_actions_cost() or self.problem.kind.has_plan_length():
