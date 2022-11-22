@@ -25,7 +25,9 @@
                 ; (at ?x - (either person aircraft) ?c - city)
                 (in ?p - person ?a - aircraft)
 
-                (different ?x ?y) (equal ?x ?y)
+                (different ?x ?y) 
+                (equal ?x ?y)
+                (otro ?x ?x)
 
                 (hay-fuel-lento ?a ?c1 ?c2)
                 (hay-fuel-rapido ?a ?c1 ?c2)
@@ -62,51 +64,12 @@
               (max-tiempo-vuelo ?a - aircraft) ; Máximo tiempo que puede estar volando un avión
                                                ; at minutos
 
+
               (distance2 ?x1 ?y1 ?x2 ?y2) {
                   import math
                   return math.sqrt((?x2 - ?x1) * (?x2 -?x1) + (?y2 - ?y1) * (?y2 - ?y1))
               }
 
-              (calculate_duration_D ?d ?dt_dd ?dt_activity ?dt_wd) {
-                  dur = -1
-
-                  # Deciding between NDD or EDD
-                  max_hours = 10 if (?dt_dd > (9*60)) else 9
-
-                  # If dt_dd already bigger than 10, returning negative value
-                  dur = (max_hours * 60) - ?dt_dd
-
-                  # Do not surpass CDD time limit
-                  cdd_remaining = (4.5*60) - ?dt_activity
-
-                  # Do not surpass DT_WD time limit
-                  wd_remaining = (56*60) - ?dt_wd
-
-                  # Return the smallest
-                  dur = dur if (dur < cdd_remaining) else cdd_remaining
-                  dur = dur if (dur < wd_remaining) else wd_remaining
-
-                  # Bigger than 0
-                  dur = dur if (dur > 0) else -1
-
-                  return dur
-              }
-
-              (get_product_price ?p_id) {
-                  import MySQLdb
-
-                  mydb = MySQLdb.Connect(db='warehouse')
-                  cursor = mydb.cursor()
-
-                  stmt = "SELECT pvp FROM products WHERE id = " + str(?p_id)
-                  cursor.execute(stmt)
-                  resultSet = cursor.fetchall()
-
-                  pvp = resultSet[0][0]
-
-                  mydb.close()
-                  return pvp
-              }
   )
 
   ;;; Derived ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -114,6 +77,15 @@
   ;; El consecuente "vacío" se representa como "()" y significa "siempre verdad"
   (:derived
     (equal ?x ?x) ()
+  )
+
+  ; Check derived inside derived
+  (:derived
+    (otro ?x ?x)
+    (and
+      (equal ?x ?x)
+      (equal ?x ?x)
+    )
   )
 
   (:derived 
@@ -167,10 +139,17 @@
     (:method Case2 ; si no está at la ciudad destino, pero avion y persona están at la misma ciudad
       :precondition (and  (at ?p - person ?c1 - city)
                           (at ?a - aircraft ?c1 - city)
+                          (otro ?a ?a)
                     )
               
-      :tasks ( 
-              (embarcar-pasajeros ?a ?c1 ?c)              
+      :tasks (
+              ; (embarcar-pasajeros ?a ?c1 ?c)
+              ; Testing time management
+              (
+                (and (>= ?start 25) (< ?dur 3))
+                (embarcar-pasajeros ?a ?c1 ?c)
+              )
+
               (mover-avion ?a ?c1 ?c)
               (desembarcar-pasajeros ?a ?c)
             )
@@ -396,7 +375,8 @@
  :parameters (?a - aircraft ?c1 ?c2 - city)
  :duration (= ?duration (/ (distance ?c1 ?c2) (slow-speed ?a)))
  :condition (and  (at end (at ?a ?c1)) ; (at end) here only for testing
-                  (>= (fuel ?a) 
+                  (hay-tiempo-rapido ?a ?c1 c2)
+                  (>= (fuel ?a)
                          (* (distance ?c1 ?c2) (slow-burn ?a))))
  :effect (and  (not (at ?a ?c1))
                (at start (at ?a ?c2)) ; (at start) here only for testing

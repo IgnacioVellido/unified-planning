@@ -20,10 +20,8 @@ import pytest
 import unified_planning
 from unified_planning.engines import PlanGenerationResultStatus
 
-# from unified_planning.io import HPDLReader, HPDLWriter
-from unified_planning.io.hpdl_reader import HPDLReader
+from unified_planning.io.hpdl import HPDLReader, HPDLWriter
 
-# from unified_planning.io.hpdl_writer import HPDLWriter
 from unified_planning.model.problem_kind import full_numeric_kind
 from unified_planning.model.types import _UserType
 from unified_planning.shortcuts import *
@@ -47,30 +45,63 @@ class TestHpdlIO(TestCase):
     def test_hpdl_reader(self):
         reader = HPDLReader()
 
-        # domain_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "vgdl/domain.hpdl")
-        # problem_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "vgdl/problem.hpdl")
         domain_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "domain.hpdl")
         problem_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "problem.hpdl")
+
         problem = reader.parse_problem(domain_filename, problem_filename)
 
-        # writer = HPDLWriter(problem)
-        # hpdl_domain = writer.get_domain()
-        # print(hpdl_domain)
-        # hpdl_problem = writer.get_problem()
-        # print(hpdl_problem)
+        assert isinstance(problem, up.model.htn.HierarchicalProblem)
+        self.assertEqual(
+            29, len(problem.fluents)
+        )  # 16 functions + 13 predicates (9 derived)
+        self.assertEqual(5, len(problem.actions))  # 14 actions + 12 inlines
+        self.assertEqual(
+            [
+                "transport-person",
+                "mover-avion",
+                "hacer-escala",
+                "embarcar-pasajeros",
+                "desembarcar-pasajeros",
+            ],
+            [task.name for task in problem.tasks],
+        )
+        self.assertEqual(
+            [
+                "transport-person-Case1",
+                "transport-person-Case2",
+                "transport-person-Case3",
+                "mover-avion-rapido-no-refuel",
+                "mover-avion-rapido-refuel",
+                "mover-avion-lento-no-refuel",
+                "mover-avion-lento-refuel",
+                "mover-avion-escala",
+                "hacer-escala-rapido-no-refuel",
+                "hacer-escala-rapido-refuel",
+                "hacer-escala-lento-no-refuel",
+                "hacer-escala-lento-refuel",
+                "embarcar-pasajeros-Case1",
+                "embarcar-pasajeros-Case2",
+                "desembarcar-pasajeros-Case1",
+                "desembarcar-pasajeros-Case2",
+            ],
+            [method.name for method in problem.methods],
+        )
+
+        for action in problem.actions:
+            assert isinstance(action, up.model.action.DurativeAction)
+        self.assertEqual(25, len(problem.task_network.subtasks))  # Goal
+
+    def test_hpdl_reader_vgdl(self):
+        reader = HPDLReader()
+
+        domain_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "vgdl/domain.hpdl")
+        problem_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "vgdl/problem.hpdl")
+        problem = reader.parse_problem(domain_filename, problem_filename)
 
         assert isinstance(problem, up.model.htn.HierarchicalProblem)
-        # print(problem)
-        # print("Task goals:", problem.task_network)
-        # print(problem.actions)
-        # print(problem.fluents)
-        # for f in problem.fluents:
-        #     print(f)
-        #     if f.type.is_func_type():
-        #         print("GET CODE", f.code)
 
-        self.assertEqual(24, len(problem.fluents)) # 14 functions + 10 predicates
-        self.assertEqual(26, len(problem.actions)) # 14 actions + 12 inlines
+        self.assertEqual(24, len(problem.fluents))  # 14 functions + 10 predicates
+        self.assertEqual(26, len(problem.actions))  # 14 actions + 12 inlines
         self.assertEqual(
             [
                 "Turn",
@@ -110,4 +141,48 @@ class TestHpdlIO(TestCase):
         self.assertEqual(
             4, len(problem.method("check-interactions-avatar_wall_stepback").subtasks)
         )
-        self.assertEqual(2, len(problem.task_network.subtasks)) # Goal
+        self.assertEqual(1, len(problem.task_network.subtasks))  # Goal
+
+    def test_hpdl_writer(self):
+        reader = HPDLReader()
+
+        domain_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "domain.hpdl")
+        problem_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "problem.hpdl")
+        problem = reader.parse_problem(domain_filename, problem_filename)
+
+        w = HPDLWriter(problem)
+
+        hpdl_domain = w.get_domain()
+        hpdl_problem = w.get_problem()
+
+        expected_domain = """(define (domain basic_with_object_constant-domain)
+ (:requirements :strips :typing :negative-preconditions)
+ (:types location)
+ (:constants
+   l1 - location
+ )
+ (:predicates (is_at ?loc - location))
+ (:action move
+  :parameters ( ?l_from - location ?l_to - location)
+  :precondition (and (is_at ?l_from) (not (is_at ?l_to)))
+  :effect (and (not (is_at ?l_from)) (is_at ?l_to)))
+ (:action move_to_l1
+  :parameters ( ?l_from - location)
+  :precondition (and (is_at ?l_from) (not (is_at l1)))
+  :effect (and (not (is_at ?l_from)) (is_at l1)))
+)
+"""
+        expected_problem = """(define (problem basic_with_object_constant-problem)
+ (:domain basic_with_object_constant-domain)
+ (:objects
+   l2 - location
+ )
+ (:init (is_at l1))
+ (:goal (and (is_at l2)))
+)
+"""
+        print(hpdl_domain)
+        print(hpdl_problem)
+
+        self.assertEqual(hpdl_domain, expected_domain)
+        self.assertEqual(hpdl_problem, expected_problem)

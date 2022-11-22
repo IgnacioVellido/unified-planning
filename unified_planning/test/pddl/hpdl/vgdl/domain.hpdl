@@ -14,11 +14,6 @@
 		:disjunctive-preconditions
 		:conditional-effects
 		:htn-expansion
-
-		; For time management
-		; :durative-actions
-		; :metatags
-
 		:equality
 	)
 
@@ -32,12 +27,6 @@
 		box - Passive
 		wall - Immovable
 	)
-
-	; Constants -----------------------------------------------------------------
-	; TODO: Define something here to test
-
-	; (:constants
-	; )
 
 	; Predicates ----------------------------------------------------------------
 
@@ -72,9 +61,6 @@
 		(counter_object)
 		(turn)
 	)
-
-	; Derived -------------------------------------------------------------------
-	; TODO: Define something here to test
 
 	; Tasks ---------------------------------------------------------------------
   
@@ -522,6 +508,7 @@
 						(= (coordinate_x ?x) (coordinate_x ?y))
 						(= (coordinate_y ?x) (coordinate_y ?y))
 						(not (= (coordinate_y ?x) (coordinate_y ?y)))
+						; This precondition purposely evaluates to false
 					)
 		:effect (
 				)

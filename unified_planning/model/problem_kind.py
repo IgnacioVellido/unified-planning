@@ -41,7 +41,7 @@ FEATURES = {
     ],
     "EFFECTS_KIND": ["CONDITIONAL_EFFECTS", "INCREASE_EFFECTS", "DECREASE_EFFECTS"],
     "TYPING": ["FLAT_TYPING", "HIERARCHICAL_TYPING"],
-    "FLUENTS_TYPE": ["NUMERIC_FLUENTS", "OBJECT_FLUENTS"],
+    "FLUENTS_TYPE": ["NUMERIC_FLUENTS", "OBJECT_FLUENTS", "PYTHON_FLUENTS"],
     "QUALITY_METRICS": [
         "ACTIONS_COST",
         "FINAL_VALUE",
@@ -217,3 +217,8 @@ quality_metrics_kind.set_quality_metrics("FINAL_VALUE")
 
 oversubscription_kind = ProblemKind()
 oversubscription_kind.set_quality_metrics("OVERSUBSCRIPTION")
+
+# TODO: Not sure if this is needed
+# hpdl_kind = ProblemKind()
+# hpdl_kind.set_typing("HIERARCHICAL_TYPING")
+# full_numeric_kind.set_fluents_type("PYTHON_FLUENTS")
