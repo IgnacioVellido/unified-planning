@@ -144,14 +144,51 @@
               
       :tasks (
               ; (embarcar-pasajeros ?a ?c1 ?c)
+              ; (mover-avion ?a ?c1 ?c)
+              ; (desembarcar-pasajeros ?a ?c)
+              
               ; Testing time management
               (
-                (and (>= ?start 25) (< ?dur 3))
+                ; (and (< ?end 25) (< ?dur 3))
+                (and (> ?start 25) (= ?dur (+ (boarding-time) 5)))
                 (embarcar-pasajeros ?a ?c1 ?c)
               )
 
-              (mover-avion ?a ?c1 ?c)
-              (desembarcar-pasajeros ?a ?c)
+              (
+                (and (= ?end 40) (<= ?dur (* 2 (slow-speed ?a))))
+                (mover-avion ?a ?c1 ?c)
+              )
+              (
+                (= ?dur 5)
+                (desembarcar-pasajeros ?a ?c)
+              )
+              (
+                (>= ?dur 6)
+                (desembarcar-pasajeros ?a ?c)
+              )
+              (
+                (>= 6 ?dur)
+                (desembarcar-pasajeros ?a ?c)
+              )
+
+              ; Adding two at the same time for one time variable
+              (
+                (and (>= ?start 7) (<= ?start (* 2 (slow-speed ?a))))
+                (desembarcar-pasajeros ?a ?c)
+              )
+              ; (
+              ;   (and (> ?start (* 2 (slow-speed ?a))) (< ?start 23))
+              ;   (desembarcar-pasajeros ?a ?c)
+              ; )
+              ; (
+              ;   (and (>= ?start (* 2 (slow-speed ?a))) (< ?start (* 3 (slow-speed ?a))))
+              ;   (desembarcar-pasajeros ?a ?c)
+              ; )
+
+              ; (
+              ;   (and (> ?start 7) (<= ?start 23))
+              ;   (desembarcar-pasajeros ?a ?c)
+              ; )
             )
     )
 
@@ -402,6 +439,7 @@
 (:durative-action refuel
  :parameters (?a - aircraft ?c - city)
  :duration (= ?duration (/ (- (capacity ?a) (fuel ?a)) (refuel-rate ?a)))
+;TODO: This can't be done?  :duration (> ?duration 3)
  :condition (and  (> (capacity ?a) (fuel ?a))
                  (over all (at ?a ?c))) ; (over all) here only for testing
  :effect (assign (fuel ?a) (capacity ?a)))

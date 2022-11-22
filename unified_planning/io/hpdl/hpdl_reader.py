@@ -885,6 +885,96 @@ class HPDLReader:
 
         return htn.Task(task_name, task_params)
 
+    def _add_time_const(
+        self,
+        exp,
+        subtask,
+        method_params
+    ):
+        """Parse a time constraint applied to a subtask. Possible variables are
+        ?start, ?end and ?dur. Constraints that affect ?start or ?end indicates
+        time units from the planning start time (GlobalStart).
+
+        Results read as:
+
+        - duration = (7, global_end]
+
+            duration must take more than 7 time units
+        
+        - end = [global_start + 40, global_end]
+        
+            end must happen 40 time units after the start of the plan
+        """
+        # Let _parse_exp know which are time variables
+        time_params = {
+            "start": self._tm.RealType(),
+            "end": self._tm.RealType(),
+            "dur": self._tm.RealType()
+        }
+        parsed_exp = self._parse_exp({}, exp, {}, time_params | method_params)
+        
+        # Check for more than one exp
+        sub_exp = parsed_exp.args if parsed_exp.is_and() else [parsed_exp]
+
+        for e in sub_exp:
+            v_id,r_id,less_than = (0,1,True) if e.arg(0).is_parameter_exp() else (1,0,False)
+
+            var = e.arg(v_id).parameter().name # Time variable affected (start/end/dur)
+            restriction = e.arg(r_id) # Constraint applied
+
+            e_str = str(e) # expression as string
+
+            # Set range bounds of restriction
+            if 'start' in var:
+                upper = model.GlobalStartTiming() if less_than else model.GlobalEndTiming()
+                lower = model.GlobalStartTiming(restriction)
+            elif 'end' in var:
+                upper = model.GlobalStartTiming() if less_than else model.GlobalEndTiming()
+                lower = model.GlobalStartTiming(restriction)
+            elif 'dur' in var:
+                if "<" in e_str : # Includes <=
+                    if less_than: # ?var <= restriction
+                        upper = model.GlobalStartTiming()
+                        lower = restriction
+                    else: # restriction <= ?var
+                        upper = model.GlobalEndTiming()
+                        lower = restriction
+                elif "==" in e_str:
+                    lower = restriction
+                else:
+                    raise SyntaxError(f"Not able to handle: {e_str}")
+            else:
+                raise SyntaxError(f"Not able to handle: {e}")
+
+            # Get interval
+            if "<=" in e_str:
+                if less_than: # ?var <= restriction
+                    constraint = model.ClosedTimeInterval(upper,lower)
+                else: # restriction <= ?var
+                    constraint = model.ClosedTimeInterval(lower,upper)
+            elif "<" in e_str:
+                if less_than:  # ?var < restriction
+                    constraint = model.RightOpenTimeInterval(upper,lower)
+                else: # restriction < ?var
+                    constraint = model.LeftOpenTimeInterval(lower,upper)
+            elif "==" in e_str:
+                constraint = model.ClosedTimeInterval(lower,lower)
+                # CHECK: Maybe FixedDuration(lower)?
+                # Above is ClosedTimeInterval for consistency with the rest of
+                # TimeInterval
+            else:
+                raise SyntaxError(f"Not able to handle: {e_str}")
+
+            # Add interval to subtask
+            if 'start' in var:
+                subtask.set_start_constraint(constraint, less_than)
+            elif 'end' in var:
+                subtask.set_end_constraint(constraint, less_than)
+            elif 'dur' in var:
+                subtask.set_duration_constraint(constraint, less_than)
+
+
+
     def _parse_method(
         self,
         method: OrderedDict,
@@ -904,9 +994,11 @@ class HPDLReader:
                 # TODO: Add time restrictions from branch time-constraints
                 time = subs.get("time_exp", None)
                 if time is not None:
-                    continue
-
-                subtask_model = self._parse_subtask(subs, method_params)
+                    subtask_model = self._parse_subtask(subs["subtask"], method_params)
+                    self._add_time_const(time, subtask_model, method_params) # Add time constraint
+                else:
+                    # TODO: Clean
+                    subtask_model = self._parse_subtask(subs, method_params)
 
                 if subtask_model is not None:
                     # Add model to list
@@ -1167,6 +1259,12 @@ class HPDLReader:
 
             self.problem.name = problem_res["name"]
 
+            # TODO: Time customization
+            customization = problem_res.get("customization", None)
+            if customization is not None:
+                # print(customization)
+                pass
+
             objects = problem_res.get("objects", [])
             objects = self._parse_params(objects)
 
@@ -1229,13 +1327,15 @@ class HPDLReader:
 
             # TODO: customization (time format/start/horizon/unit)
 
+
             for i in problem_res.get("init", []):
                 if i[0] == "=":
                     self.problem.set_initial_value(
                         self._parse_exp({}, i[1]),
                         self._parse_exp({}, i[2]),
                     )
-                elif (
+                # TODO: Add support for dates also here (change isdigit)
+                elif ( # "and" TI
                     len(i) == 3 and i[0] == "at" and i[1].replace(".", "", 1).isdigit()
                 ):
                     ti = model.StartTiming(Fraction(i[1]))
@@ -1248,6 +1348,29 @@ class HPDLReader:
                         self.problem.add_timed_effect(ti, va.arg(0), va.arg(1))
                     else:
                         raise SyntaxError(f"Not able to handle this TIL {i}")
+                elif ( # "between" TI
+                    len(i) == 4 and i[0] == "between" and
+                    i[1].replace(".", "", 1).isdigit() and
+                    i[2].replace(".", "", 1).isdigit()
+                ):
+                    # TODO: I believe it could be included as an interval, but
+                    # for the moment I'll keep it as two time effects, the
+                    # provided and the not
+                    lower = model.StartTiming(Fraction(i[1]))
+                    upper = model.StartTiming(Fraction(i[2]))
+                    # ti = model.ClosedTimeInterval(lower, upper)
+                    va = self._parse_exp({}, i[3])
+                    if va.is_fluent_exp():
+                        self.problem.add_timed_effect(lower, va, self._em.TRUE())
+                        self.problem.add_timed_effect(upper, va, self._em.FALSE())
+                    elif va.is_not():
+                        self.problem.add_timed_effect(lower, va.arg(0), self._em.FALSE())
+                        self.problem.add_timed_effect(upper, va.arg(0), self._em.TRUE())
+                    elif va.is_equals():
+                        # self.problem.add_timed_effect(ti, va.arg(0), va.arg(1))
+                        raise NotImplementedError(f"No support between assignments TIL {i}")
+                    else:
+                        raise SyntaxError(f"Not able to handle this TIL {i}")
                 else:
                     self.problem.set_initial_value(
                         self._parse_exp({}, i),
@@ -1255,6 +1378,7 @@ class HPDLReader:
                     )
 
             # HPDL task-goal is the equivalent of HDDL htn tasks
+            # TODO: Add ordering to task_network
             tasknet = problem_res.get("goal", None)
             if tasknet is not None:
                 subtasks, _ = self._parse_method(tasknet, self.types_map)

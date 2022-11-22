@@ -257,6 +257,14 @@ class HPDLGrammar:
             + Suppress(")")
         )
 
+        # Time customization
+        sec_customization = Group(
+            Suppress("(")
+            + ":customization"
+            + OneOrMore(nestedExpr())
+            + Suppress(")")
+        )
+
         # ----------------------------------------------------------
 
         problem = (
@@ -270,6 +278,7 @@ class HPDLGrammar:
             + ":domain"
             + name
             + Suppress(")")
+            + Optional(sec_customization.setResultsName("customization"))
             + Optional(sec_requirements)
             + Optional(Suppress("(") + ":objects" + objects + Suppress(")"))
             + Suppress("(")
