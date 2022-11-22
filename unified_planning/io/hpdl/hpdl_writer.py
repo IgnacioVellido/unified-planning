@@ -342,7 +342,7 @@ class HPDLWriter:
             raise UPProblemDefinitionError(
                 "PDDL2.1 does not support ICE.\nICE are Intermediate Conditions and Effects therefore when an Effect (or Condition) are not at StartTIming(0) or EndTIming(0)."
             )
-        if self.problem_kind.has_timed_effect() or self.problem_kind.has_timed_goals():
+        if self.problem_kind.has_timed_goals():
             raise UPProblemDefinitionError(
                 "PDDL2.1 does not support timed effects or timed goals."
             )
