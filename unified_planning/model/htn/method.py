@@ -56,6 +56,11 @@ class ParameterizedTask:
     def task(self) -> Task:
         return self._task
 
+    # TODO: Check
+    @property
+    def name(self) -> Task:
+        return self._task.name
+
     @property
     def parameters(self) -> List[up.model.parameter.Parameter]:
         return self._params
@@ -147,6 +152,11 @@ class Method:
     def name(self) -> str:
         """Returns the action name."""
         return self._name
+
+    # TODO: Consider checking None and return only name
+    @property
+    def task(self) -> Task:
+        return self._task
 
     @property
     def achieved_task(self) -> ParameterizedTask:
