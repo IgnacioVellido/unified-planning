@@ -38,10 +38,12 @@ class Fluent:
             ]
         ] = None,
         env: Environment = None,
+        code: str = None,
         **kwargs: "up.model.types.Type",
     ):
         self._env = get_env(env)
         self._name = name
+        self._code = code # TODO: CHECK parameters are numeric
         if typename is None:
             self._typename = self._env.type_manager.BoolType()
         else:
@@ -103,6 +105,11 @@ class Fluent:
     def type(self) -> "up.model.types.Type":
         """Returns the `Fluent` `Type`."""
         return self._typename
+
+    @property
+    def code(self) -> str:
+        """Returns the `Fluent` `code`."""
+        return self._code
 
     @property
     def signature(self) -> List["up.model.parameter.Parameter"]:
