@@ -552,16 +552,50 @@ class HPDLWriter:
 
         return subtasks_str
 
-    def _subtasks_to_str(self,subtask):
+    def _get_preconditions_effects_str(self, action):
+        """For actions and inlines only"""
+        converter = ConverterToPDDLString(self.problem.env, self._get_mangled_name)
+            
+        precondition_str = "\n  ".join([converter.convert(p) for p in action.preconditions])
+        
+        effect_str = ""
+        for e in action.effects:
+            if e.is_conditional():
+                effect_str += f"(when {converter.convert(e.condition)}"
+            if e.value.is_true():
+                effect_str += (f"{converter.convert(e.fluent)}")
+            elif e.value.is_false():
+                effect_str += (f"(not {converter.convert(e.fluent)})")
+            elif e.is_increase():
+                effect_str += (
+                    f"(increase {converter.convert(e.fluent)} {converter.convert(e.value)})"
+                )
+            elif e.is_decrease():
+                effect_str += (
+                    f"(decrease {converter.convert(e.fluent)} {converter.convert(e.value)})"
+                )
+            else:
+                effect_str += (
+                    f"(assign {converter.convert(e.fluent)} {converter.convert(e.value)})"
+                )
+            if e.is_conditional():
+                effect_str += (f")")
+
+        return precondition_str, effect_str
+
+    def _subtasks_to_str(self, subtask):
         s = f"({subtask.name} "
-        for ap in subtask.parameters: # Type needed for variables not defined in :parameters
-            s += f"{self._get_mangled_name(ap)} - {self._get_mangled_name(ap.type)} "
-        return s+")"
+        if "inline" in subtask.name:
+            # TODO: Clean. Refactor, similar code to _write_actions and _write_tasks
+            pre_str, eff_str = self._get_preconditions_effects_str(subtask)
+            return f"(:inline (and {pre_str}) (and {eff_str}))"
+        else:
+            for ap in subtask.parameters: # Type needed for variables not defined in :parameters
+                s += f"{self._get_mangled_name(ap)} - {self._get_mangled_name(ap.type)} "
+            return s+")"
 
     # TODO: Put proper indentation
-    # TODO: Ordering
     # TODO: Time constraints
-
     # TODO: What happens with variables not defined on :parameters and used in
     # multiple places??
     def _write_tasks(self, out:IO[str]):
@@ -591,7 +625,7 @@ class HPDLWriter:
                 if len(m.preconditions) > 0:
                     precondition_str = "\n  ".join([converter.convert(p) for p in m.preconditions])
                     out.write(
-                        f'\n   :precondition (and {precondition_str})'
+                        f'\n   :precondition (and\n    {precondition_str}\n    )'
                     )
 
                 # Subtasks
@@ -605,6 +639,7 @@ class HPDLWriter:
 
 
     def _write_actions(self, out: IO[str]):
+        obe = ObjectsExtractor()
         converter = ConverterToPDDLString(self.problem.env, self._get_mangled_name)
         costs = {}
         metrics = self.problem.quality_metrics
@@ -625,46 +660,25 @@ class HPDLWriter:
             )
             
         for a in self.problem.actions:
+            # TODO: Improve how inline is checked
+            # Ignore inline. Already written in _write_method
             if isinstance(a, up.model.InstantaneousAction):
-                out.write(f" (:action {self._get_mangled_name(a)}")
-                out.write(f"\n  :parameters (")
-                self._write_parameters(out, a.parameters)
-                out.write(")")
-                if len(a.preconditions) > 0:
-                    precondition_str = "\n  ".join([converter.convert(p) for p in a.preconditions])
-                    out.write(
-                        f'\n  :precondition (and {precondition_str})'
-                    )
-                if len(a.effects) > 0:
-                    out.write("\n  :effect (and")
-                    for e in a.effects:
-                        if e.is_conditional():
-                            out.write(f"(when {converter.convert(e.condition)}")
-                        if e.value.is_true():
-                            out.write(f"{converter.convert(e.fluent)}")
-                        elif e.value.is_false():
-                            out.write(f"(not {converter.convert(e.fluent)})")
-                        elif e.is_increase():
-                            out.write(
-                                f"(increase {converter.convert(e.fluent)} {converter.convert(e.value)})"
-                            )
-                        elif e.is_decrease():
-                            out.write(
-                                f"(decrease {converter.convert(e.fluent)} {converter.convert(e.value)})"
-                            )
-                        else:
-                            out.write(
-                                f"(assign {converter.convert(e.fluent)} {converter.convert(e.value)})"
-                            )
-                        if e.is_conditional():
-                            out.write(f")")
-
-                    if a in costs:
-                        out.write(
-                            f" (increase (total-cost) {converter.convert(costs[a])})"
-                        )
+                if not "inline" in self._get_mangled_name(a):
+                    out.write(f" (:action {self._get_mangled_name(a)}")
+                    out.write(f"\n  :parameters (")
+                    self._write_parameters(out, a.parameters)
                     out.write(")")
-                out.write("  )\n")
+
+                    pre_str, eff_str = self._get_preconditions_effects_str(a)
+                    if len(a.preconditions) > 0:
+                        out.write(
+                            f'\n  :precondition (and\n   {pre_str}\n  )'
+                        )
+                    if len(a.effects) > 0:
+                        out.write(
+                            f"\n  :effect (and\n   {eff_str}\n  )"
+                        )
+                    out.write("\n )\n")
             elif isinstance(a, DurativeAction):
                 out.write(f" (:durative-action {self._get_mangled_name(a)}")
                 out.write(f"\n  :parameters (")
