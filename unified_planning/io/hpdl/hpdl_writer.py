@@ -15,6 +15,7 @@ from unified_planning.model import (
     Parameter,
     Problem,
     Object,
+    FNode,
 )
 from unified_planning.model.htn import(
     Task,
@@ -354,6 +355,8 @@ class HPDLWriter:
             name = _get_pddl_name(self.problem)
         out.write(f"(domain {name}-domain)\n")
 
+        # TODO: Write customization
+
         if self.needs_requirements:
             self._write_requirements(out)
 
@@ -500,8 +503,47 @@ class HPDLWriter:
                 raise UPTypeError("PDDL supports only user type parameters")
 
 
+    # TODO: Refactor
     def _get_subtasks_str(self, network: Union[TaskNetwork, Method], get_types: bool = False):
         """Write subtasks ordered in HPDL style ([ for parallelism)"""
+        def get_time_constraint(s):
+            def const_str(op, open, var, const):
+                if isinstance(const, FNode):
+                    converter = ConverterToPDDLString(self.problem.env, self._get_mangled_name)
+                    const = converter.convert(const)
+
+                return f'({op}{"" if open else "="} ?{var} {const})'
+
+
+            # TODO: class Subtask properties for constraints?
+            res = ""
+
+            vars = ["start", "end", "dur"]
+            constraints = [s._start_const, s._end_const, s._duration_const]
+            for var, constraint in zip(vars, constraints):
+                if constraint is not None:
+                    lower_delay = constraint.lower.delay
+                    upper_delay = constraint.upper.delay
+
+                    if lower_delay == upper_delay:
+                        op = '='
+                        const = lower_delay
+                        open = True
+                        res += const_str(op, open, var, const) + " "
+                    else:
+                        if lower_delay != 0:
+                            op = '>'
+                            const = lower_delay
+                            open = constraint.is_left_open()
+                            res += const_str(op, open, var, const) + " "
+                        if upper_delay != 0:
+                            op = '<'
+                            const = upper_delay
+                            open = constraint.is_right_open()
+                            res += const_str(op, open, var, const) + " "
+
+            return f'\n     (and {res})\n' if res else ""
+
         # TODO: Give property to const or something because this is not nice
         def get_tags_const(const):
             """Get str names of both tags in ordering constraint"""
@@ -510,9 +552,17 @@ class HPDLWriter:
 
         def subtask_to_str(s, get_types):
             if get_types: # For domain subtasks
-                return f'    {self._subtasks_to_str(s.task)}'
+                res = f'    {self._subtasks_to_str(s.task)}'
             else: # For problem task-goal
-                return f'    ({s.task.name} {" ".join([str(p) for p in s.parameters])})'    
+                res = f'    ({s.task.name} {" ".join([str(p) for p in s.parameters])})'    
+            
+            # Write time-constraints
+            time_const_str = get_time_constraint(s)
+            if time_const_str:
+                res = f'    ({time_const_str} {res}' + "\n    )"
+
+            return res
+
 
         subtask_len = len(network.subtasks)
         if subtask_len == 0:

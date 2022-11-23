@@ -935,12 +935,15 @@ class HPDLReader:
                 if "<" in e_str : # Includes <=
                     if less_than: # ?var <= restriction
                         upper = model.GlobalStartTiming()
-                        lower = restriction
+                        # lower = restriction # This should be Timing, not FNode
+                        lower = model.GlobalStartTiming(restriction)
                     else: # restriction <= ?var
                         upper = model.GlobalEndTiming()
-                        lower = restriction
+                        # lower = restriction # This should be Timing, not FNode
+                        lower = model.GlobalStartTiming(restriction)
                 elif "==" in e_str:
-                    lower = restriction
+                    # lower = restriction # This should be Timing, not FNode
+                    lower = model.GlobalStartTiming(restriction)
                 else:
                     raise SyntaxError(f"Not able to handle: {e_str}")
             else:
