@@ -554,7 +554,7 @@ class HPDLWriter:
             if get_types: # For domain subtasks
                 res = f'    {self._subtasks_to_str(s.task)}'
             else: # For problem task-goal
-                res = f'    ({s.task.name} {" ".join([str(p) for p in s.parameters])})'    
+                res = f'    ({self._get_mangled_name(s.task)} {" ".join([str(p) for p in s.parameters])})'    
             
             # Write time-constraints
             time_const_str = get_time_constraint(s)
@@ -645,7 +645,7 @@ class HPDLWriter:
         return precondition_str, effect_str
 
     def _subtasks_to_str(self, subtask):
-        s = f"({subtask.name} "
+        s = f"({self._get_mangled_name(subtask)} "
         if "inline" in subtask.name:
             # TODO: Clean. Refactor, similar code to _write_actions and _write_tasks
             pre_str, eff_str = self._get_preconditions_effects_str(subtask)
