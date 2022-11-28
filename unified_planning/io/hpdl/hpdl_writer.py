@@ -386,7 +386,7 @@ class HPDLWriter:
             self.problem_kind.has_continuous_numbers()
             or self.problem_kind.has_discrete_numbers()
         ):
-            out.write(" :numeric-fluents")
+            out.write(" :fluents")
         if self.problem_kind.has_conditional_effects():
             out.write(" :conditional-effects")
         if self.problem_kind.has_existential_conditions():
