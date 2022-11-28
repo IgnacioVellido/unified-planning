@@ -344,8 +344,9 @@ class HPDLWriter:
                 "PDDL2.1 does not support ICE.\nICE are Intermediate Conditions and Effects therefore when an Effect (or Condition) are not at StartTIming(0) or EndTIming(0)."
             )
         if self.problem_kind.has_timed_goals():
+            # TODO: Change raise PDDL to HPDL
             raise UPProblemDefinitionError(
-                "PDDL2.1 does not support timed effects or timed goals."
+                "HPDL2.1 does not support timed goals."
             )
         obe = ObjectsExtractor()
         out.write("(define ")
@@ -840,6 +841,21 @@ class HPDLWriter:
         converter = ConverterToPDDLString(self.problem.env, self._get_mangled_name)
 
         out.write(" (:init")
+        
+        # Write timed effects
+        for t, effects in self.problem.timed_effects.items():
+            # TODO: Consider (between ) if (at f) and (at (not f)) is found
+            # TODO: Check t.timepoint.kind != TimepointKind.GLOBAL_START?
+            for e in effects:
+                if e.value.is_true():
+                    # effect_str += (f"{converter.convert(e.fluent)}")
+                    out.write(f"\n  (at {t.delay} {converter.convert(e.fluent)})")
+                elif e.value.is_false():
+                    # effect_str += (f"(not {converter.convert(e.fluent)})")
+                    out.write(f"\n  (at {t.delay} (not {converter.convert(e.fluent)}))")
+                else:
+                    raise UPProblemDefinitionError("HPDL only supports boolean timed effects")
+
         # FIXME: Why are we calling initial_values? It's extremely slow
         # for f, v in self.problem.initial_values.items():
         # Can't we use explicit_initial_values?
