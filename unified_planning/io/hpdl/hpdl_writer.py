@@ -377,43 +377,43 @@ class HPDLWriter:
         out.write(")\n")
 
     def _write_requirements(self, out: IO[str]):
-        out.write(" (:requirements :strips")
+        out.write(" (:requirements\n   :strips")
         if self.problem_kind.has_flat_typing():
-            out.write(" :typing")
+            out.write("\n   :typing")
         if self.problem_kind.has_negative_conditions():
-            out.write(" :negative-preconditions")
+            out.write("\n   :negative-preconditions")
         if self.problem_kind.has_disjunctive_conditions():
-            out.write(" :disjunctive-preconditions")
+            out.write("\n   :disjunctive-preconditions")
         if self.problem_kind.has_equality():
-            out.write(" :equality")
+            out.write("\n   :equality")
         if (
             self.problem_kind.has_continuous_numbers()
             or self.problem_kind.has_discrete_numbers()
         ):
-            out.write(" :numeric-fluents")
+            out.write("\n   :numeric-fluents")
         if self.problem_kind.has_conditional_effects():
-            out.write(" :conditional-effects")
+            out.write("\n   :conditional-effects")
         if self.problem_kind.has_existential_conditions():
-            out.write(" :existential-preconditions")
+            out.write("\n   :existential-preconditions")
         if self.problem_kind.has_universal_conditions():
-            out.write(" :universal-preconditions")
+            out.write("\n   :universal-preconditions")
         if (
             self.problem_kind.has_continuous_time()
             or self.problem_kind.has_discrete_time()
         ):
-            out.write(" :durative-actions")
+            out.write("\n   :durative-actions")
         if self.problem_kind.has_duration_inequalities():
-            out.write(" :duration-inequalities")
+            out.write("\n   :duration-inequalities")
         if (
             self.problem_kind.has_actions_cost()
             or self.problem_kind.has_plan_length()
         ):
-            out.write(" :action-costs")
+            out.write("\n   :action-costs")
         # TODO: Check if metatasks (modify problem_kind.py)
         # TODO: Check if python-fluents (wait for discussion)
         # if self.problem_kind.has_hierarchical() # This is checked on init
-        out.write(" :htn-expansion")
-        out.write(")\n")
+        out.write("\n   :htn-expansion")
+        out.write("\n )\n")
 
     def _write_types(self, out: IO[str]):
         if self.problem_kind.has_hierarchical_typing():
