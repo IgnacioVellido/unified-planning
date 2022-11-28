@@ -345,11 +345,6 @@ class HPDLReader:
             )
 
         raise Exception("HPDLReader: Wrong reader, use PDDL instead")
-        # return model.Problem(
-        #     name,
-        #     self._env,
-        #     initial_defaults={self._tm.BoolType(): self._em.FALSE()},
-        # )
 
     def _parse_types(self, types_list: List[str]):
         """Parses a type from the domain"""
