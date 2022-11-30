@@ -832,20 +832,21 @@ class HPDLWriter:
         out.write(" (:init")
 
         # Write timed effects
-        for t, effects in self.problem.timed_effects.items():
-            # TODO: Consider (between ) if (at f) and (at (not f)) is found
-            # TODO: Check t.timepoint.kind != TimepointKind.GLOBAL_START?
-            for e in effects:
-                if e.value.is_true():
-                    # effect_str += (f"{converter.convert(e.fluent)}")
-                    out.write(f"\n  (at {t.delay} {converter.convert(e.fluent)})")
-                elif e.value.is_false():
-                    # effect_str += (f"(not {converter.convert(e.fluent)})")
-                    out.write(f"\n  (at {t.delay} (not {converter.convert(e.fluent)}))")
-                else:
-                    raise UPProblemDefinitionError(
-                        "HPDL only supports boolean timed effects"
-                    )
+        # FIXME: (at) does not work in SIADEX
+        # for t, effects in self.problem.timed_effects.items():
+        #     # TODO: Consider (between ) if (at f) and (at (not f)) is found
+        #     # TODO: Check t.timepoint.kind != TimepointKind.GLOBAL_START?
+        #     for e in effects:
+        #         if e.value.is_true():
+        #             # effect_str += (f"{converter.convert(e.fluent)}")
+        #             out.write(f"\n  (at {t.delay} {converter.convert(e.fluent)})")
+        #         elif e.value.is_false():
+        #             # effect_str += (f"(not {converter.convert(e.fluent)})")
+        #             out.write(f"\n  (at {t.delay} (not {converter.convert(e.fluent)}))")
+        #         else:
+        #             raise UPProblemDefinitionError(
+        #                 "HPDL only supports boolean timed effects"
+        #             )
 
         # FIXME: Why are we calling initial_values? It's extremely slow
         # for f, v in self.problem.initial_values.items():
