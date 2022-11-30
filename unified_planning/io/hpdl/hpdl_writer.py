@@ -372,7 +372,7 @@ class HPDLWriter:
         out.write(" (:requirements\n   :strips")
         if self.problem_kind.has_flat_typing():
             out.write("\n   :typing")
-        # TODO: Check negative conditions
+        # FIXME: Check negative conditions
         # if self.problem_kind.has_negative_conditions():
         out.write("\n   :negative-preconditions")
         if self.problem_kind.has_disjunctive_conditions():
@@ -679,13 +679,14 @@ class HPDLWriter:
                 # TODO: Check if SIADEX needs precondition tag even if empty
                 # TODO: All methods contains only one and precondition, split
                 # TODO: Will likely need to print variable type too
+                out.write("\n   :precondition (")
                 if len(m.preconditions) > 0:
                     precondition_str = "\n  ".join(
                         [converter.convert(p) for p in m.preconditions]
                     )
-                    out.write(f"\n   :precondition (and\n    {precondition_str}\n    )")
-                else:
-                    out.write(f"\n   :precondition ( )")
+                    out.write(f"and\n    {precondition_str}\n   ")
+                out.write(")")
+
                 # Subtasks
                 out.write(
                     f"\n   :tasks (\n{self._get_subtasks_str(m, get_types=True)}   )"

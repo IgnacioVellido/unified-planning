@@ -58,7 +58,7 @@
       :tasks()
     ) 
     (:method limpiar_ocupado
-      :precondition ((sobre ?y ?x))
+      :precondition (and (sobre ?y ?x))
       :tasks
       ((limpiar ?y)(colocar ?y mesa))
     )
@@ -79,7 +79,7 @@
 
   (:task primero-coge
     :parameters (?x - bloque) (:method cogelo_de_la_mesa
-      :precondition ((sobremesa ?x))
+      :precondition (and (sobremesa ?x))
       :tasks
       ((coger ?x))
     ) (:method cogelo_de_la_pila
@@ -91,7 +91,7 @@
 
   (:task despues-deja
     :parameters (?x - bloque ?y - object) (:method dejalo_en_la_mesa
-      :precondition ((igual ?y mesa))
+      :precondition (and (igual ?y mesa))
       :tasks
       ((dejar ?x))
     ) (:method dejalo_en_la_pila
@@ -111,7 +111,7 @@
 
   (:action dejar
     :parameters (?x - bloque)
-    :precondition ((cogido ?x))
+    :precondition (and (cogido ?x))
     :effect (and (sobremesa ?x) (libre ?x) (manovacia)
       (not (cogido ?x)))
   )
