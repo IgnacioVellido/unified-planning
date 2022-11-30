@@ -143,52 +143,52 @@
                     )
               
       :tasks (
-              ; (embarcar-pasajeros ?a ?c1 ?c)
-              ; (mover-avion ?a ?c1 ?c)
-              ; (desembarcar-pasajeros ?a ?c)
+              (embarcar-pasajeros ?a ?c1 ?c)
+              ; ; (mover-avion ?a ?c1 ?c)
+              ; ; (desembarcar-pasajeros ?a ?c)
               
-              ; Testing time management
-              (
-                ; (and (< ?end 25) (< ?dur 3))
-                (and (> ?start 25) (= ?dur (+ (boarding-time) 5)))
-                (embarcar-pasajeros ?a ?c1 ?c)
-              )
-
-              (
-                (and (= ?end 40) (<= ?dur (* 2 (slow-speed ?a))))
-                (mover-avion ?a ?c1 ?c)
-              )
-              (
-                (= ?dur 5)
-                (desembarcar-pasajeros ?a ?c)
-              )
-              (
-                (>= ?dur 6)
-                (desembarcar-pasajeros ?a ?c)
-              )
-              (
-                (>= 6 ?dur)
-                (desembarcar-pasajeros ?a ?c)
-              )
-
-              ; Adding two at the same time for one time variable
-              (
-                (and (>= ?start 7) (<= ?start (* 2 (slow-speed ?a))))
-                (desembarcar-pasajeros ?a ?c)
-              )
+              ; ; Testing time management
               ; (
-              ;   (and (> ?start (* 2 (slow-speed ?a))) (< ?start 23))
-              ;   (desembarcar-pasajeros ?a ?c)
-              ; )
-              ; (
-              ;   (and (>= ?start (* 2 (slow-speed ?a))) (< ?start (* 3 (slow-speed ?a))))
-              ;   (desembarcar-pasajeros ?a ?c)
+              ;   ; (and (< ?end 25) (< ?dur 3))
+              ;   ; (and (> ?start 25) (= ?dur (+ (boarding-time) 5)))
+              ;   (embarcar-pasajeros ?a ?c1 ?c)
               ; )
 
               ; (
-              ;   (and (> ?start 7) (<= ?start 23))
+              ;   (and (= ?end 40) (<= ?dur (* 2 (slow-speed ?a))))
+              ;   (mover-avion ?a ?c1 ?c)
+              ; )
+              ; (
+              ;   (= ?dur 5)
               ;   (desembarcar-pasajeros ?a ?c)
               ; )
+              ; (
+              ;   (>= ?dur 6)
+              ;   (desembarcar-pasajeros ?a ?c)
+              ; )
+              ; (
+              ;   (>= 6 ?dur)
+              ;   (desembarcar-pasajeros ?a ?c)
+              ; )
+
+              ; ; Adding two at the same time for one time variable
+              ; (
+              ;   (and (>= ?start 7) (<= ?start (* 2 (slow-speed ?a))))
+              ;   (desembarcar-pasajeros ?a ?c)
+              ; )
+              ; ; (
+              ; ;   (and (> ?start (* 2 (slow-speed ?a))) (< ?start 23))
+              ; ;   (desembarcar-pasajeros ?a ?c)
+              ; ; )
+              ; ; (
+              ; ;   (and (>= ?start (* 2 (slow-speed ?a))) (< ?start (* 3 (slow-speed ?a))))
+              ; ;   (desembarcar-pasajeros ?a ?c)
+              ; ; )
+
+              ; ; (
+              ; ;   (and (> ?start 7) (<= ?start 23))
+              ; ;   (desembarcar-pasajeros ?a ?c)
+              ; ; )
             )
     )
 
@@ -263,29 +263,25 @@
     )
 
     (:method escala ; No puede con ninguno, probar otra ciudad
-      :precondition (and 
-                      (es-ciudad ?c3 - city)
-                      (not (= ?c2 ?c3))
-                      (not (= ?c1 ?c3))                      
-                    )
+      :precondition ()
       :tasks (
+              ; ; (hacer-escala ?a ?c1 ?c3)
+              ; ; (mover-avion ?a ?c3 ?c2)
+              ; ; Testing ordering
+              ; [
+              ;   (hacer-escala ?a ?c1 ?c3)
+              ;   (mover-avion ?a ?c3 ?c2)
+              ; ]
               ; (hacer-escala ?a ?c1 ?c3)
               ; (mover-avion ?a ?c3 ?c2)
-              ; Testing ordering
-              [
-                (hacer-escala ?a ?c1 ?c3)
-                (mover-avion ?a ?c3 ?c2)
-              ]
-              (hacer-escala ?a ?c1 ?c3)
-              (mover-avion ?a ?c3 ?c2)
-              [
-                (hacer-escala ?a ?c1 ?c3)
-                (mover-avion ?a ?c3 ?c2)
-              ]
-              [
-                (hacer-escala ?a ?c1 ?c3)
-                (mover-avion ?a ?c3 ?c2)
-              ]
+              ; [
+              ;   (hacer-escala ?a ?c1 ?c3)
+              ;   (mover-avion ?a ?c3 ?c2)
+              ; ]
+              ; [
+              ;   (hacer-escala ?a ?c1 ?c3)
+              ;   (mover-avion ?a ?c3 ?c2)
+              ; ]
             )
     )
   )

@@ -14,9 +14,10 @@
 #
 """This module defines all the types."""
 
-import unified_planning
 from fractions import Fraction
-from typing import Iterator, Optional, Dict, Tuple, cast
+from typing import Dict, Iterator, Optional, Tuple, cast
+
+import unified_planning
 from unified_planning.exceptions import UPProblemDefinitionError, UPTypeError
 
 
@@ -93,6 +94,12 @@ class _UserType(Type):
             if self._father is None
             else f"{self._name} - {cast(_UserType, self._father).name}"
         )
+
+    # def __eq__(self, __o: object) -> bool:
+    #     return self.name == __o.name
+
+    # def __hash__(self) -> Tuple[str, str]:
+    #     return (self.name, self.father)
 
     @property
     def name(self) -> str:
