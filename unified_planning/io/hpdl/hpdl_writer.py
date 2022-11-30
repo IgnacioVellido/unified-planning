@@ -339,7 +339,7 @@ class HPDLWriter:
             )
         if self.problem_kind.has_timed_goals():
             # TODO: Change raise PDDL to HPDL
-            raise UPProblemDefinitionError("HPDL2.1 does not support timed goals.")
+            raise UPProblemDefinitionError("HPDL does not support timed goals.")
         obe = ObjectsExtractor()
         out.write("(define ")
         if self.problem.name is None:
@@ -412,15 +412,7 @@ class HPDLWriter:
             stack: List["unified_planning.model.Type"] = (
                 user_types_hierarchy[None] if None in user_types_hierarchy else []
             )
-            # TODO: SIADEX: Clean object - object type from list
-
-            stack_str = ""
-            for t in stack:
-                if self._get_mangled_name(t) != "object":
-                    stack_str += " " + self._get_mangled_name(t)
-
-            if stack_str != "":
-                out.write(f"    {stack_str} - object\n")
+            # TODO: Check. Because we always add object in hpdl_reader, no need to write it here (CAREFUL with a UPF user)
             # out.write(
             #     f'    {" ".join(self._get_mangled_name(t) for t in stack )} - object\n'
             # )
@@ -870,6 +862,14 @@ class HPDLWriter:
             out.write(f"\n  (= (total-cost) 0)")
         out.write("\n )\n")
 
+    def _write_customization(self, out: IO[str]):
+        out.write(f" (:customization\n")
+        out.write(f'  (= :time-format "%d/%m/%Y %H:%M:%S")\n')
+        out.write(f"  (= :time-horizon-relative 2500)\n")
+        out.write(f'  (= :time-start "05/06/2007 08:00:00")\n')
+        out.write(f"  (= :time-unit :hours)\n")
+        out.write(f" )\n")
+
     # FIXME
     def _write_problem(self, out: IO[str]):
         if self.problem.name is None:
@@ -880,6 +880,7 @@ class HPDLWriter:
         out.write(f" (:domain {name}-domain)\n")
 
         # TODO: :customization
+        self._write_customization(out)
 
         if self.domain_objects is None:
             # This method populates the self._domain_objects map
@@ -954,9 +955,7 @@ class HPDLWriter:
             assert item.is_user_type()
             original_name = cast(_UserType, item).name
             tmp_name = _get_pddl_name(item)
-            # If the problem is hierarchical and the name is object, we want to change it
-            # if self.problem_kind.has_hierarchical_typing() and tmp_name == "object":
-            #     tmp_name = f"{tmp_name}_"
+            # TODO: Add to notes: No need to change the name of object
         else:
             original_name = item.name
             tmp_name = _get_pddl_name(item)

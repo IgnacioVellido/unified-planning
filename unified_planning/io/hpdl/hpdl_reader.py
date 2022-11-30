@@ -262,23 +262,11 @@ class HPDLReader:
                 )
 
     def _check_if_object_type_is_needed(self, domain_res) -> bool:
+        """In HPDL we can declare variables outside the parameters section, so
+        if we try the same philosophy as in pddl_reader, we will need to check
+        almost all the domain, and it's not feasible to do it here, but rather
+        while building the problem object"""
         return True
-        for p in domain_res.get("predicates", []):
-            for g in p[1]:
-                if len(g) <= 1 or g[1] == "object":
-                    return True
-        for p in domain_res.get("functions", []):
-            for g in p[0][1]:
-                if len(g) <= 1 or g[1] == "object":
-                    return True
-        for g in domain_res.get("constants", []):
-            if len(g) <= 1 or g[1] == "object":
-                return True
-        for a in domain_res.get("actions", []):
-            for g in a.get("params", []):
-                if len(g) <= 1 or g[1] == "object":
-                    return True
-        return False
 
     def _durative_action_has_cost(self, dur_act: model.DurativeAction):
         if self._totalcost in self._fve.get(

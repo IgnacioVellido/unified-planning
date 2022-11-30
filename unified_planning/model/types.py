@@ -95,12 +95,6 @@ class _UserType(Type):
             else f"{self._name} - {cast(_UserType, self._father).name}"
         )
 
-    # def __eq__(self, __o: object) -> bool:
-    #     return self.name == __o.name
-
-    # def __hash__(self) -> Tuple[str, str]:
-    #     return (self.name, self.father)
-
     @property
     def name(self) -> str:
         """Returns the type name."""
