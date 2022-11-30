@@ -157,7 +157,7 @@ class HPDLReader:
             elif op in self.derived:  # Check derived
                 for d in self.derived[op]:
                     res.append((model.StartTiming(), d))
-            elif op == "forall": # TODO: Why don't we use _em.Forall
+            elif op == "forall":  # TODO: Why don't we use _em.Forall
                 vars_string = " ".join(exp[1])
                 vars_res = self._pp_parameters.parseString(vars_string)
                 if vars is None:
@@ -262,22 +262,11 @@ class HPDLReader:
                 )
 
     def _check_if_object_type_is_needed(self, domain_res) -> bool:
-        for p in domain_res.get("predicates", []):
-            for g in p[1]:
-                if len(g) <= 1 or g[1] == "object":
-                    return True
-        for p in domain_res.get("functions", []):
-            for g in p[1]:
-                if len(g) <= 1 or g[1] == "object":
-                    return True
-        for g in domain_res.get("constants", []):
-            if len(g) <= 1 or g[1] == "object":
-                return True
-        for a in domain_res.get("actions", []):
-            for g in a.get("params", []):
-                if len(g) <= 1 or g[1] == "object":
-                    return True
-        return False
+        """In HPDL we can declare variables outside the parameters section, so
+        if we try the same philosophy as in pddl_reader, we will need to check
+        almost all the domain, and it's not feasible to do it here, but rather
+        while building the problem object"""
+        return True
 
     def _durative_action_has_cost(self, dur_act: model.DurativeAction):
         if self._totalcost in self._fve.get(
@@ -367,9 +356,10 @@ class HPDLReader:
                 len(types_list) == 1
             ), "Malformed list of types, I was expecting either 1 or 2 elements"  # sanity check
         for type_name in types_list[0]:
-            self.types_map[type_name] = self._env.type_manager.UserType(
-                type_name, father
-            )
+            if type_name != "object":
+                self.types_map[type_name] = self._env.type_manager.UserType(
+                    type_name, father
+                )
 
     def _parse_predicate(self, predicate: List[str]) -> model.Fluent:
         name = predicate[0]
@@ -880,12 +870,7 @@ class HPDLReader:
 
         return htn.Task(task_name, task_params)
 
-    def _add_time_const(
-        self,
-        exp,
-        subtask,
-        method_params
-    ):
+    def _add_time_const(self, exp, subtask, method_params):
         """Parse a time constraint applied to a subtask. Possible variables are
         ?start, ?end and ?dur. Constraints that affect ?start or ?end indicates
         time units from the planning start time (GlobalStart).
@@ -895,44 +880,50 @@ class HPDLReader:
         - duration = (7, global_end]
 
             duration must take more than 7 time units
-        
+
         - end = [global_start + 40, global_end]
-        
+
             end must happen 40 time units after the start of the plan
         """
         # Let _parse_exp know which are time variables
         time_params = {
             "start": self._tm.RealType(),
             "end": self._tm.RealType(),
-            "dur": self._tm.RealType()
+            "duration": self._tm.RealType(),
         }
         parsed_exp = self._parse_exp({}, exp, {}, time_params | method_params)
-        
+
         # Check for more than one exp
         sub_exp = parsed_exp.args if parsed_exp.is_and() else [parsed_exp]
 
         for e in sub_exp:
-            v_id,r_id,less_than = (0,1,True) if e.arg(0).is_parameter_exp() else (1,0,False)
+            v_id, r_id, less_than = (
+                (0, 1, True) if e.arg(0).is_parameter_exp() else (1, 0, False)
+            )
 
-            var = e.arg(v_id).parameter().name # Time variable affected (start/end/dur)
-            restriction = e.arg(r_id) # Constraint applied
+            var = e.arg(v_id).parameter().name  # Time variable affected (start/end/dur)
+            restriction = e.arg(r_id)  # Constraint applied
 
-            e_str = str(e) # expression as string
+            e_str = str(e)  # expression as string
 
             # Set range bounds of restriction
-            if 'start' in var:
-                upper = model.GlobalStartTiming() if less_than else model.GlobalEndTiming()
+            if "start" in var:
+                upper = (
+                    model.GlobalStartTiming() if less_than else model.GlobalEndTiming()
+                )
                 lower = model.GlobalStartTiming(restriction)
-            elif 'end' in var:
-                upper = model.GlobalStartTiming() if less_than else model.GlobalEndTiming()
+            elif "end" in var:
+                upper = (
+                    model.GlobalStartTiming() if less_than else model.GlobalEndTiming()
+                )
                 lower = model.GlobalStartTiming(restriction)
-            elif 'dur' in var:
-                if "<" in e_str : # Includes <=
-                    if less_than: # ?var <= restriction
+            elif "duration" in var:
+                if "<" in e_str:  # Includes <=
+                    if less_than:  # ?var <= restriction
                         upper = model.GlobalStartTiming()
                         # lower = restriction # This should be Timing, not FNode
                         lower = model.GlobalStartTiming(restriction)
-                    else: # restriction <= ?var
+                    else:  # restriction <= ?var
                         upper = model.GlobalEndTiming()
                         # lower = restriction # This should be Timing, not FNode
                         lower = model.GlobalStartTiming(restriction)
@@ -946,17 +937,17 @@ class HPDLReader:
 
             # Get interval
             if "<=" in e_str:
-                if less_than: # ?var <= restriction
-                    constraint = model.ClosedTimeInterval(upper,lower)
-                else: # restriction <= ?var
-                    constraint = model.ClosedTimeInterval(lower,upper)
+                if less_than:  # ?var <= restriction
+                    constraint = model.ClosedTimeInterval(upper, lower)
+                else:  # restriction <= ?var
+                    constraint = model.ClosedTimeInterval(lower, upper)
             elif "<" in e_str:
                 if less_than:  # ?var < restriction
-                    constraint = model.RightOpenTimeInterval(upper,lower)
-                else: # restriction < ?var
-                    constraint = model.LeftOpenTimeInterval(lower,upper)
+                    constraint = model.RightOpenTimeInterval(upper, lower)
+                else:  # restriction < ?var
+                    constraint = model.LeftOpenTimeInterval(lower, upper)
             elif "==" in e_str:
-                constraint = model.ClosedTimeInterval(lower,lower)
+                constraint = model.ClosedTimeInterval(lower, lower)
                 # CHECK: Maybe FixedDuration(lower)?
                 # Above is ClosedTimeInterval for consistency with the rest of
                 # TimeInterval
@@ -964,14 +955,12 @@ class HPDLReader:
                 raise SyntaxError(f"Not able to handle: {e_str}")
 
             # Add interval to subtask
-            if 'start' in var:
+            if "start" in var:
                 subtask.set_start_constraint(constraint, less_than)
-            elif 'end' in var:
+            elif "end" in var:
                 subtask.set_end_constraint(constraint, less_than)
-            elif 'dur' in var:
+            elif "duration" in var:
                 subtask.set_duration_constraint(constraint, less_than)
-
-
 
     def _parse_method(
         self,
@@ -993,7 +982,9 @@ class HPDLReader:
                 time = subs.get("time_exp", None)
                 if time is not None:
                     subtask_model = self._parse_subtask(subs["subtask"], method_params)
-                    self._add_time_const(time, subtask_model, method_params) # Add time constraint
+                    self._add_time_const(
+                        time, subtask_model, method_params
+                    )  # Add time constraint
                 else:
                     # TODO: Clean
                     subtask_model = self._parse_subtask(subs, method_params)
@@ -1325,7 +1316,6 @@ class HPDLReader:
 
             # TODO: customization (time format/start/horizon/unit)
 
-
             for i in problem_res.get("init", []):
                 if i[0] == "=":
                     self.problem.set_initial_value(
@@ -1333,7 +1323,7 @@ class HPDLReader:
                         self._parse_exp({}, i[2]),
                     )
                 # TODO: Add support for dates also here (change isdigit)
-                elif ( # "and" TI
+                elif (  # "and" TI
                     len(i) == 3 and i[0] == "at" and i[1].replace(".", "", 1).isdigit()
                 ):
                     ti = model.StartTiming(Fraction(i[1]))
@@ -1346,10 +1336,11 @@ class HPDLReader:
                         self.problem.add_timed_effect(ti, va.arg(0), va.arg(1))
                     else:
                         raise SyntaxError(f"Not able to handle this TIL {i}")
-                elif ( # "between" TI
-                    len(i) == 4 and i[0] == "between" and
-                    i[1].replace(".", "", 1).isdigit() and
-                    i[2].replace(".", "", 1).isdigit()
+                elif (  # "between" TI
+                    len(i) == 4
+                    and i[0] == "between"
+                    and i[1].replace(".", "", 1).isdigit()
+                    and i[2].replace(".", "", 1).isdigit()
                 ):
                     # TODO: I believe it could be included as an interval, but
                     # for the moment I'll keep it as two time effects, the
@@ -1362,11 +1353,15 @@ class HPDLReader:
                         self.problem.add_timed_effect(lower, va, self._em.TRUE())
                         self.problem.add_timed_effect(upper, va, self._em.FALSE())
                     elif va.is_not():
-                        self.problem.add_timed_effect(lower, va.arg(0), self._em.FALSE())
+                        self.problem.add_timed_effect(
+                            lower, va.arg(0), self._em.FALSE()
+                        )
                         self.problem.add_timed_effect(upper, va.arg(0), self._em.TRUE())
                     elif va.is_equals():
                         # self.problem.add_timed_effect(ti, va.arg(0), va.arg(1))
-                        raise NotImplementedError(f"No support between assignments TIL {i}")
+                        raise NotImplementedError(
+                            f"No support between assignments TIL {i}"
+                        )
                     else:
                         raise SyntaxError(f"Not able to handle this TIL {i}")
                 else:
@@ -1393,31 +1388,32 @@ class HPDLReader:
                 # respect to the previous iteration
                 # TODO: Refactor, this looks ugly and is not easy to understand
                 if len(ordering) >= 2:
-                    for i in range(1, len(subtasks)): # ordering[0]...ordering[n]
+                    for i in range(1, len(subtasks)):  # ordering[0]...ordering[n]
                         # Loop through subtasks of previous ordering
-                        if subtasks[i-1][0] == "(" and subtasks[i][0] == "(":
+                        if subtasks[i - 1][0] == "(" and subtasks[i][0] == "(":
                             # Both sequential, last vs first
-                            s1 = subtasks[i-1][1][-1] # Next ordering, subtask list, last task
+                            s1 = subtasks[i - 1][1][
+                                -1
+                            ]  # Next ordering, subtask list, last task
                             s2 = subtasks[i][1][0]
-                            self.problem.task_network.set_ordered(s1,s2)
+                            self.problem.task_network.set_ordered(s1, s2)
 
-                        elif subtasks[i-1][0] == "[" and subtasks[i][0] == "(":
+                        elif subtasks[i - 1][0] == "[" and subtasks[i][0] == "(":
                             # Parallel-sequential, all vs first
                             s2 = subtasks[i][1][0]
                             for s1 in subtasks[i - 1][1]:
-                                self.problem.task_network.set_ordered(s1,s2)
-                        
-                        elif subtasks[i-1][0] == "(" and subtasks[i][0] == "[": 
+                                self.problem.task_network.set_ordered(s1, s2)
+
+                        elif subtasks[i - 1][0] == "(" and subtasks[i][0] == "[":
                             # Sequential-parallel, last vs all
-                            s1 = subtasks[i-1][1][-1]
+                            s1 = subtasks[i - 1][1][-1]
                             for s2 in subtasks[i][1]:
-                                self.problem.task_network.set_ordered(s1,s2)
-                        
-                        else: # Both parallel, all vs all
+                                self.problem.task_network.set_ordered(s1, s2)
+
+                        else:  # Both parallel, all vs all
                             for s1 in subtasks[i - 1][1]:
                                 for s2 in subtasks[i][1]:
-                                    self.problem.task_network.set_ordered(s1,s2)
-                            
+                                    self.problem.task_network.set_ordered(s1, s2)
 
             self.has_actions_cost = (
                 self.has_actions_cost and self._problem_has_actions_cost(self.problem)

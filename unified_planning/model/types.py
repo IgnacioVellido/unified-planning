@@ -14,9 +14,10 @@
 #
 """This module defines all the types."""
 
-import unified_planning
 from fractions import Fraction
-from typing import Iterator, Optional, Dict, Tuple, cast
+from typing import Dict, Iterator, Optional, Tuple, cast
+
+import unified_planning
 from unified_planning.exceptions import UPProblemDefinitionError, UPTypeError
 
 
