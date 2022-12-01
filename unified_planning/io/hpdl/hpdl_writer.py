@@ -636,17 +636,12 @@ class HPDLWriter:
         return precondition_str, effect_str
 
     def _subtasks_to_str(self, s: "up.model.Subtask", task_params):
-        # print(1.5, subtask, subtask.parameters)
         res = f"({self._get_mangled_name(s.task)} "
         if "inline" in s.task.name:
             # TODO: Clean. Refactor, similar code to _write_actions and _write_tasks
             pre_str, eff_str = self._get_preconditions_effects_str(s.task)
             return f"(:inline (and {pre_str}) (and {eff_str}))"
         else:
-            # print(2, subtask, subtask.parameters)
-            # print([str(a) for a in s.parameters])
-            print(task_params)
-            # res += f"?{' ?'.join([str(a) for a in s.parameters])}"
             for p in (
                 s.parameters
             ):  # Type needed for variables not defined in :parameters
@@ -654,7 +649,6 @@ class HPDLWriter:
                 res += (
                     f"{self._get_mangled_name(task_params[p])} - {self._get_mangled_name(task_params[p].type)} "
                 )
-            print(res)
             return res + ")"
 
     # TODO: Put proper indentation
