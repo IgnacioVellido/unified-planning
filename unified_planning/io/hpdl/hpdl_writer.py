@@ -332,6 +332,10 @@ class HPDLWriter:
         # those 2 maps are "symmetrical", meaning that "(otn[k] == v) implies (nto[v] == k)"
         self.domain_objects: Optional[Dict[_UserType, Set[Object]]] = None
 
+        self.converter = ConverterToPDDLString(
+            self.problem.env, self._get_mangled_name
+        )
+
     def _write_domain(self, out: IO[str]):
         if self.problem_kind.has_intermediate_conditions_and_effects():
             raise UPProblemDefinitionError(
@@ -501,10 +505,7 @@ class HPDLWriter:
         def get_time_constraint(s):
             def const_str(op, open, var, const):
                 if isinstance(const, FNode):
-                    converter = ConverterToPDDLString(
-                        self.problem.env, self._get_mangled_name
-                    )
-                    const = converter.convert(const)
+                    const = self.converter.convert(const)
 
                 return f'({op}{"" if open else "="} ?{var} {const})'
 
@@ -545,9 +546,9 @@ class HPDLWriter:
                 const.arg(1).timing().timepoint.container,
             )
 
-        def subtask_to_str(s, get_types):
+        def subtasks_to_str(s, get_types: bool, task_params):
             if get_types:  # For domain subtasks
-                res = f"    {self._subtasks_to_str(s.task)}"
+                res = f"    {self._subtasks_to_str(s, task_params)}"
             else:  # For problem task-goal
                 res = f'    ({self._get_mangled_name(s.task)} {" ".join([str(p) for p in s.parameters])})'
 
@@ -594,70 +595,73 @@ class HPDLWriter:
 
         # Print groups
         subtasks_str = ""
+        # FIXME: Properties return List and we want the OrderedDict, find another way
+        task_params = network._variables if isinstance(network, TaskNetwork) else network._parameters
         for g in groups:
             if len(g) == 0:
                 pass
             elif len(g) > 1:  # Parallels
                 subtasks_str += "    [\n "
-                subtasks_str += "\n ".join([subtask_to_str(s, get_types) for s in g])
+                subtasks_str += "\n ".join([subtasks_to_str(s, get_types, task_params) for s in g])
                 subtasks_str += "\n    ]\n"
             else:  # Sequential
                 s = g[0]
-                subtasks_str += subtask_to_str(s, get_types) + "\n"
+                subtasks_str += subtasks_to_str(s, get_types, task_params) + "\n"
 
         return subtasks_str
 
     def _get_preconditions_effects_str(self, action):
         """For actions and inlines only"""
-        converter = ConverterToPDDLString(self.problem.env, self._get_mangled_name)
-
         precondition_str = "\n  ".join(
-            [converter.convert(p) for p in action.preconditions]
+            [self.converter.convert(p) for p in action.preconditions]
         )
 
         effect_str = ""
         for e in action.effects:
             if e.is_conditional():
-                effect_str += f"(when {converter.convert(e.condition)}"
+                effect_str += f"(when {self.converter.convert(e.condition)}"
             if e.value.is_true():
-                effect_str += f"{converter.convert(e.fluent)}"
+                effect_str += f"{self.converter.convert(e.fluent)}"
             elif e.value.is_false():
-                effect_str += f"(not {converter.convert(e.fluent)})"
+                effect_str += f"(not {self.converter.convert(e.fluent)})"
             elif e.is_increase():
-                effect_str += f"(increase {converter.convert(e.fluent)} {converter.convert(e.value)})"
+                effect_str += f"(increase {self.converter.convert(e.fluent)} {self.converter.convert(e.value)})"
             elif e.is_decrease():
-                effect_str += f"(decrease {converter.convert(e.fluent)} {converter.convert(e.value)})"
+                effect_str += f"(decrease {self.converter.convert(e.fluent)} {self.converter.convert(e.value)})"
             else:
-                effect_str += f"(assign {converter.convert(e.fluent)} {converter.convert(e.value)})"
+                effect_str += f"(assign {self.converter.convert(e.fluent)} {self.converter.convert(e.value)})"
             if e.is_conditional():
                 effect_str += f")"
 
         return precondition_str, effect_str
 
-    def _subtasks_to_str(self, subtask):
-        s = f"({self._get_mangled_name(subtask)} "
-        if "inline" in subtask.name:
+    def _subtasks_to_str(self, s: "up.model.Subtask", task_params):
+        # print(1.5, subtask, subtask.parameters)
+        res = f"({self._get_mangled_name(s.task)} "
+        if "inline" in s.task.name:
             # TODO: Clean. Refactor, similar code to _write_actions and _write_tasks
-            pre_str, eff_str = self._get_preconditions_effects_str(subtask)
+            pre_str, eff_str = self._get_preconditions_effects_str(s.task)
             return f"(:inline (and {pre_str}) (and {eff_str}))"
         else:
-            for (
-                ap
-            ) in (
-                subtask.parameters
+            # print(2, subtask, subtask.parameters)
+            # print([str(a) for a in s.parameters])
+            print(task_params)
+            # res += f"?{' ?'.join([str(a) for a in s.parameters])}"
+            for p in (
+                s.parameters
             ):  # Type needed for variables not defined in :parameters
-                s += (
-                    f"{self._get_mangled_name(ap)} - {self._get_mangled_name(ap.type)} "
+                p = str(p)
+                res += (
+                    f"{self._get_mangled_name(task_params[p])} - {self._get_mangled_name(task_params[p].type)} "
                 )
-            return s + ")"
+            print(res)
+            return res + ")"
 
     # TODO: Put proper indentation
     # TODO: Time constraints
     # TODO: What happens with variables not defined on :parameters and used in
     # multiple places??
     def _write_tasks(self, out: IO[str]):
-        converter = ConverterToPDDLString(self.problem.env, self._get_mangled_name)
-
         # Get methods name of each task
         methods = dict((t.name, []) for t in self.problem.tasks)
         for m in self.problem.methods:
@@ -682,7 +686,7 @@ class HPDLWriter:
                 out.write("\n   :precondition (")
                 if len(m.preconditions) > 0:
                     precondition_str = "\n  ".join(
-                        [converter.convert(p) for p in m.preconditions]
+                        [self.converter.convert(p) for p in m.preconditions]
                     )
                     out.write(f"and\n    {precondition_str}\n   ")
                 out.write(")")
@@ -698,7 +702,6 @@ class HPDLWriter:
 
     def _write_actions(self, out: IO[str]):
         obe = ObjectsExtractor()
-        converter = ConverterToPDDLString(self.problem.env, self._get_mangled_name)
         costs = {}
         metrics = self.problem.quality_metrics
         if len(metrics) == 1:
@@ -740,17 +743,17 @@ class HPDLWriter:
                 out.write(")")
                 l, r = a.duration.lower, a.duration.upper
                 if l == r:
-                    out.write(f"\n  :duration (= ?duration {converter.convert(l)})")
+                    out.write(f"\n  :duration (= ?duration {self.converter.convert(l)})")
                 else:
                     out.write(f"\n  :duration (and ")
                     if a.duration.is_left_open():
-                        out.write(f"(> ?duration {converter.convert(l)})")
+                        out.write(f"(> ?duration {self.converter.convert(l)})")
                     else:
-                        out.write(f"(>= ?duration {converter.convert(l)})")
+                        out.write(f"(>= ?duration {self.converter.convert(l)})")
                     if a.duration.is_right_open():
-                        out.write(f"(< ?duration {converter.convert(r)})")
+                        out.write(f"(< ?duration {self.converter.convert(r)})")
                     else:
-                        out.write(f"(<= ?duration {converter.convert(r)})")
+                        out.write(f"(<= ?duration {self.converter.convert(r)})")
                     out.write(")")
                 if len(a.conditions) > 0:
                     out.write(f"\n  :condition (and")
@@ -759,15 +762,15 @@ class HPDLWriter:
                             out.write("\n   ")
                             if interval.lower == interval.upper:
                                 if interval.lower.is_from_start():
-                                    out.write(f"(at start {converter.convert(c)})")
+                                    out.write(f"(at start {self.converter.convert(c)})")
                                 else:
-                                    out.write(f"(at end {converter.convert(c)})")
+                                    out.write(f"(at end {self.converter.convert(c)})")
                             else:
                                 if not interval.is_left_open():
-                                    out.write(f"(at start {converter.convert(c)})")
-                                out.write(f"(over all {converter.convert(c)})")
+                                    out.write(f"(at start {self.converter.convert(c)})")
+                                out.write(f"(over all {self.converter.convert(c)})")
                                 if not interval.is_right_open():
-                                    out.write(f"(at end {converter.convert(c)})")
+                                    out.write(f"(at end {self.converter.convert(c)})")
                     out.write("\n  )")
                 if len(a.effects) > 0:
                     out.write("\n  :effect (and")
@@ -779,29 +782,29 @@ class HPDLWriter:
                             else:
                                 out.write(f"(at end ")
                             if e.is_conditional():
-                                out.write(f"(when {converter.convert(e.condition)}")
+                                out.write(f"(when {self.converter.convert(e.condition)}")
                             if e.value.is_true():
-                                out.write(f"{converter.convert(e.fluent)}")
+                                out.write(f"{self.converter.convert(e.fluent)}")
                             elif e.value.is_false():
-                                out.write(f"(not {converter.convert(e.fluent)})")
+                                out.write(f"(not {self.converter.convert(e.fluent)})")
                             elif e.is_increase():
                                 out.write(
-                                    f"(increase {converter.convert(e.fluent)} {converter.convert(e.value)})"
+                                    f"(increase {self.converter.convert(e.fluent)} {self.converter.convert(e.value)})"
                                 )
                             elif e.is_decrease():
                                 out.write(
-                                    f"(decrease {converter.convert(e.fluent)} {converter.convert(e.value)})"
+                                    f"(decrease {self.converter.convert(e.fluent)} {self.converter.convert(e.value)})"
                                 )
                             else:
                                 out.write(
-                                    f"(assign {converter.convert(e.fluent)} {converter.convert(e.value)})"
+                                    f"(assign {self.converter.convert(e.fluent)} {self.converter.convert(e.value)})"
                                 )
                             if e.is_conditional():
                                 out.write(f")")
                             out.write(")")
                     if a in costs:
                         out.write(
-                            f" (at end (increase (total-cost) {converter.convert(costs[a])}))"
+                            f" (at end (increase (total-cost) {self.converter.convert(costs[a])}))"
                         )
                     out.write("\n  )")
 
@@ -828,8 +831,6 @@ class HPDLWriter:
         out.write("\n )\n")
 
     def _write_init(self, out: IO[str]):
-        converter = ConverterToPDDLString(self.problem.env, self._get_mangled_name)
-
         out.write(" (:init")
 
         # Write timed effects
@@ -839,11 +840,11 @@ class HPDLWriter:
         #     # TODO: Check t.timepoint.kind != TimepointKind.GLOBAL_START?
         #     for e in effects:
         #         if e.value.is_true():
-        #             # effect_str += (f"{converter.convert(e.fluent)}")
-        #             out.write(f"\n  (at {t.delay} {converter.convert(e.fluent)})")
+        #             # effect_str += (f"{self.converter.convert(e.fluent)}")
+        #             out.write(f"\n  (at {t.delay} {self.converter.convert(e.fluent)})")
         #         elif e.value.is_false():
-        #             # effect_str += (f"(not {converter.convert(e.fluent)})")
-        #             out.write(f"\n  (at {t.delay} (not {converter.convert(e.fluent)}))")
+        #             # effect_str += (f"(not {self.converter.convert(e.fluent)})")
+        #             out.write(f"\n  (at {t.delay} (not {self.converter.convert(e.fluent)}))")
         #         else:
         #             raise UPProblemDefinitionError(
         #                 "HPDL only supports boolean timed effects"
@@ -855,11 +856,11 @@ class HPDLWriter:
         for f, v in self.problem.explicit_initial_values.items():
             # TODO: (at start), (between)
             if v.is_true():
-                out.write(f"\n  {converter.convert(f)}")
+                out.write(f"\n  {self.converter.convert(f)}")
             elif v.is_false():
                 pass
             else:
-                out.write(f"\n  (= {converter.convert(f)} {converter.convert(v)})")
+                out.write(f"\n  (= {self.converter.convert(f)} {self.converter.convert(v)})")
         if self.problem.kind.has_actions_cost():
             out.write(f"\n  (= (total-cost) 0)")
         out.write("\n )\n")

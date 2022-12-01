@@ -41,7 +41,8 @@
   )
 
   (:task sobre
-    :parameters (?x ?y) (:method poner_encima
+    :parameters (?x ?y)
+    (:method poner_encima
       :precondition () ; vacío
       :tasks
       (
@@ -53,7 +54,8 @@
   )
 
   (:task limpiar
-    :parameters (?x) (:method limpiar_mesa
+    :parameters (?x)
+    (:method limpiar_mesa
       :precondition (igual ?x mesa)
       :tasks()
     ) 
