@@ -15,8 +15,13 @@
     (cogido ?x - bloque)
     (sobremesa ?x - bloque)
     (sobre ?x ?y - bloque)
-    (igual ?x ?y)
     (distinto ?x ?y)
+  )
+
+  (:functions
+    (igual ?x ?y) {
+      return ?x == ?y
+    }
   )
 
   ;; Regla para "derivar" (determinar) si dos variables son distintas.
@@ -31,13 +36,7 @@
 
   (:derived
     (distinto ?x ?y)
-    (not (igual ?x ?y))
-  )
-
-  ;; el consecuente "vacío" se representa como "()" y significa "siempre verdad"
-  (:derived
-    (igual ?x ?x)
-    ()
+    (>= 0 (igual ?x ?y))
   )
 
   (:task sobre
@@ -56,7 +55,7 @@
   (:task limpiar
     :parameters (?x)
     (:method limpiar_mesa
-      :precondition (igual ?x mesa)
+      :precondition (< 0 (igual ?x mesa))
       :tasks()
     ) 
     (:method limpiar_ocupado
@@ -93,7 +92,7 @@
 
   (:task despues-deja
     :parameters (?x - bloque ?y - object) (:method dejalo_en_la_mesa
-      :precondition (and (igual ?y mesa))
+      :precondition (and (< 0(igual ?y mesa)))
       :tasks
       ((dejar ?x))
     ) (:method dejalo_en_la_pila
