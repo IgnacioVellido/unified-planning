@@ -344,7 +344,13 @@ class HPDLWriter:
         if self.problem_kind.has_timed_goals():
             # TODO: Change raise PDDL to HPDL
             raise UPProblemDefinitionError("HPDL does not support timed goals.")
+        
         obe = ObjectsExtractor()
+        if self.domain_objects is None:
+            # This method populates the self._domain_objects map (constants)
+            self._populate_domain_objects(obe)
+        assert self.domain_objects is not None
+
         out.write("(define ")
         if self.problem.name is None:
             name = "hpdl"
@@ -358,11 +364,6 @@ class HPDLWriter:
             self._write_requirements(out)
 
         self._write_types(out)
-
-        if self.domain_objects is None:
-            # This method populates the self._domain_objects map
-            self._populate_domain_objects(obe)
-        assert self.domain_objects is not None
 
         if len(self.domain_objects) > 0:
             self._write_constants(out)
@@ -484,7 +485,7 @@ class HPDLWriter:
         predicates_str = "\n  ".join(predicates)
         functions_str = "\n  ".join(functions)
         out.write(
-            f" (:predicates {predicates_str}\n )\n" if len(predicates) > 0 else ""
+            f" (:predicates\n  {predicates_str}\n )\n" if len(predicates) > 0 else ""
         )
         out.write(f" (:functions {functions_str}\n )\n" if len(functions) > 0 else "")
 
@@ -662,10 +663,21 @@ class HPDLWriter:
             ):  # Always printing type for variables not defined in :parameters
                 p = p.parameter()
 
+                # Look for constants, print them without type
+                # FIXME: Improve. This is ugly
+                found = False
+                for _, constants in self.domain_objects.items():
+                    for c in constants:
+                        # print("c", c.name)
+                        if c.name == p.name:
+                            res += f"{c.name} "
+                            found = True
+                            
                 # Because mangled_name, getting object in params list
-                res += (
-                    f"{self._get_mangled_name(params[p.name])} - {self._get_mangled_name(p.type)} "
-                )
+                if not found:
+                    res += (
+                        f"{self._get_mangled_name(params[p.name])} - {self._get_mangled_name(p.type)} "
+                    )
             return res + ")"
 
     # TODO: Put proper indentation
@@ -959,7 +971,13 @@ class HPDLWriter:
             "up.model.Variable",
         ],
     ) -> str:
-        """This function returns a valid and unique PDDL name."""
+        """This function returns a valid and unique PDDL name."""     
+        return _get_pddl_name(item)
+        # FIXME: Because method preconditions are printed by the converter, and
+        # the object it uses is not the same as the one in otn_renamings, it gives
+        # it a different name.
+        # But I don't understand why is this needed, as if it is inside UPF the
+        # name is (supposedly) already unique
 
         # If we already encountered this item, return it
         if item in self.otn_renamings:
@@ -1044,6 +1062,7 @@ class HPDLWriter:
             )
 
     def _populate_domain_objects(self, obe: ObjectsExtractor):
+        """Looks for constants"""
         self.domain_objects = {}
         # Iterate the actions to retrieve domain objects
         for a in self.problem.actions:
@@ -1072,6 +1091,14 @@ class HPDLWriter:
                         _update_domain_objects(self.domain_objects, obe.get(e.fluent))
                         _update_domain_objects(self.domain_objects, obe.get(e.value))
 
+        # Iterate over methods
+        for m in self.problem.methods:
+            for p in m.preconditions:
+                _update_domain_objects(self.domain_objects, obe.get(p))
+
+            for s in m.subtasks:
+                for p in s.parameters:
+                    _update_domain_objects(self.domain_objects, obe.get(p))
 
 def _get_pddl_name(
     item: Union[
