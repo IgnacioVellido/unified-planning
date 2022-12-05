@@ -392,8 +392,8 @@ class HPDLWriter:
             out.write("\n   :conditional-effects")
         if self.problem_kind.has_existential_conditions():
             out.write("\n   :existential-preconditions")
-        if self.problem_kind.has_universal_conditions():
-            out.write("\n   :universal-preconditions")
+        # if self.problem_kind.has_universal_conditions():
+        out.write("\n   :universal-preconditions")
         if (
             self.problem_kind.has_continuous_time()
             or self.problem_kind.has_discrete_time()
