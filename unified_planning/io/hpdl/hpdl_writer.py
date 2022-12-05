@@ -86,7 +86,7 @@ PDDL_KEYWORDS = {
     "strips",
     "negative-preconditions",
     "typing",
-    "disjunctive-preconditions",
+    "disjuntive-preconditions", # FIXME: SIADEX HAS THIS TYPE IN THE PARSER
     "equality",
     "existential-preconditions",
     "universal-preconditions",
@@ -380,7 +380,7 @@ class HPDLWriter:
         # if self.problem_kind.has_negative_conditions():
         out.write("\n   :negative-preconditions")
         if self.problem_kind.has_disjunctive_conditions():
-            out.write("\n   :disjunctive-preconditions")
+            out.write("\n   :disjuntive-preconditions")  # FIXME: SIADEX HAS THIS TYPE IN THE PARSER
         if self.problem_kind.has_equality():
             out.write("\n   :equality")
         if (
@@ -392,6 +392,7 @@ class HPDLWriter:
             out.write("\n   :conditional-effects")
         if self.problem_kind.has_existential_conditions():
             out.write("\n   :existential-preconditions")
+        # FIXME: Check universal preconditions
         # if self.problem_kind.has_universal_conditions():
         out.write("\n   :universal-preconditions")
         if (
