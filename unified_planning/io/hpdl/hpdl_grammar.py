@@ -67,7 +67,7 @@ class HPDLGrammar:
         sec_constants = (
             Suppress("(")
             + ":constants"
-            + OneOrMore(name_list).setResultsName("constants")
+            + ZeroOrMore(name_list).setResultsName("constants")
             + Suppress(")")
         )
 
