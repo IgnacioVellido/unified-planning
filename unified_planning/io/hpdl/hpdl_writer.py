@@ -499,7 +499,9 @@ class HPDLWriter:
 
     # TODO: Refactor
     def _get_subtasks_str(
-        self, network: Union[TaskNetwork, Method], get_types: bool = False
+        self,
+        network: Union[TaskNetwork, Method],
+        get_types: bool = False,
     ):
         """Write subtasks ordered in HPDL style ([ for parallelism)"""
 
@@ -594,20 +596,32 @@ class HPDLWriter:
                 group_idx += 1
                 groups.append([s])
 
+        # Get parameters in the task/method
+        params = dict()
+
+        # If method, get parameters task and method parameters
+        if isinstance(network, Method):
+            for p in network.parameters:
+                params[p.name] = p
+
+            for p in network.task.parameters:
+                params[p.name] = p
+        else: # If task-network, only its parameters
+            for p in network.variables:
+                params[p.name] = p
+
         # Print groups
         subtasks_str = ""
-        # FIXME: Properties return List and we want the OrderedDict, find another way
-        task_params = network._variables if isinstance(network, TaskNetwork) else network._parameters
         for g in groups:
             if len(g) == 0:
                 pass
             elif len(g) > 1:  # Parallels
                 subtasks_str += "    [\n "
-                subtasks_str += "\n ".join([subtasks_to_str(s, get_types, task_params) for s in g])
+                subtasks_str += "\n ".join([subtasks_to_str(s, get_types, params) for s in g])
                 subtasks_str += "\n    ]\n"
             else:  # Sequential
                 s = g[0]
-                subtasks_str += subtasks_to_str(s, get_types, task_params) + "\n"
+                subtasks_str += subtasks_to_str(s, get_types, params) + "\n"
 
         return subtasks_str
 
@@ -636,7 +650,7 @@ class HPDLWriter:
 
         return precondition_str, effect_str
 
-    def _subtasks_to_str(self, s: "up.model.Subtask", task_params):
+    def _subtasks_to_str(self, s: "up.model.Subtask", params):
         res = f"({self._get_mangled_name(s.task)} "
         if "inline" in s.task.name:
             # TODO: Clean. Refactor, similar code to _write_actions and _write_tasks
@@ -645,10 +659,12 @@ class HPDLWriter:
         else:
             for p in (
                 s.parameters
-            ):  # Type needed for variables not defined in :parameters
-                p = str(p)
+            ):  # Always printing type for variables not defined in :parameters
+                p = p.parameter()
+
+                # Because mangled_name, getting object in params list
                 res += (
-                    f"{self._get_mangled_name(task_params[p])} - {self._get_mangled_name(task_params[p].type)} "
+                    f"{self._get_mangled_name(params[p.name])} - {self._get_mangled_name(p.type)} "
                 )
             return res + ")"
 
