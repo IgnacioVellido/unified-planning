@@ -377,11 +377,10 @@ class HPDLWriter:
         out.write(" (:requirements\n   :strips")
         if self.problem_kind.has_flat_typing():
             out.write("\n   :typing")
-        # FIXME: Check negative conditions
-        # if self.problem_kind.has_negative_conditions():
-        out.write("\n   :negative-preconditions")
+        if self.problem_kind.has_negative_conditions():
+            out.write("\n   :negative-preconditions")
         if self.problem_kind.has_disjunctive_conditions():
-            out.write("\n   :disjuntive-preconditions")  # FIXME: SIADEX HAS THIS TYPE IN THE PARSER
+            out.write("\n   :disjuntive-preconditions")  # FIXME: SIADEX HAS THIS TYPO IN THE PARSER
         if self.problem_kind.has_equality():
             out.write("\n   :equality")
         if (
@@ -393,9 +392,8 @@ class HPDLWriter:
             out.write("\n   :conditional-effects")
         if self.problem_kind.has_existential_conditions():
             out.write("\n   :existential-preconditions")
-        # FIXME: Check universal preconditions
-        # if self.problem_kind.has_universal_conditions():
-        out.write("\n   :universal-preconditions")
+        if self.problem_kind.has_universal_conditions():
+            out.write("\n   :universal-preconditions")
         if (
             self.problem_kind.has_continuous_time()
             or self.problem_kind.has_discrete_time()
