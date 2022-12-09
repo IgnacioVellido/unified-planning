@@ -155,8 +155,15 @@ class HPDLReader:
                 for e in exp[1:]:
                     to_add.append((e, vars))
             elif op in self.derived:  # Check derived
-                for d in self.derived[op]:
-                    res.append((model.StartTiming(), d))
+                header, derived, params = self.derived[op]
+
+                # Change content of derived with the appropriate variables of exp
+                changed = self._change_derived(derived, header, exp[1:]) # exp[0] is the derived name
+
+                # Get changed exp as FNode
+                fluent = self._parse_exp({}, changed[0], {}, params)
+
+                res.append((model.StartTiming(), fluent))
             elif op == "forall":  # TODO: Why don't we use _em.Forall
                 vars_string = " ".join(exp[1])
                 vars_res = self._pp_parameters.parseString(vars_string)
@@ -408,12 +415,15 @@ class HPDLReader:
         if exp[0] == "?" and exp[1:] in var:  # variable in a quantifier expression
             return self._em.VariableExp(var[exp[1:]])
         elif exp[0] in self.derived:  # Check derived
-            res = []
-            for d in self.derived[exp[0]]:
-                res.append(d)
+            header, derived, params = self.derived[exp[0]]
 
-            op: Callable = self._operators["and"]
-            return op(*res)
+            # Change content of derived with the appropriate variables of exp
+            changed = self._change_derived(derived, header, exp[1:]) # exp[0] is the derived name
+
+            # Get changed exp as FNode
+            fluent = self._parse_exp({}, changed[0], {}, params)
+
+            return fluent, None
         elif exp in assignments:  # quantified assignment variable
             return self._em.ObjectExp(assignments[exp])
         elif exp[0] == "?":  # action parameter
@@ -452,12 +462,15 @@ class HPDLReader:
                 res.append((var, e, False))
             return None, res
         elif exp[0] in self.derived:  # Check derived and substitute
-            res = []
-            for d in self.derived[exp[0]]:
-                res.append(d)
+            header, derived, params = self.derived[exp[0]]
 
-            op: Callable = self._operators["and"]
-            return op(*res), None  # Returns the FNodes
+            # Change content of derived with the appropriate variables of exp
+            changed = self._change_derived(derived, header, exp[1:]) # exp[0] is the derived name
+
+            # Get changed exp as FNode
+            fluent = self._parse_exp({}, changed[0], {}, params)
+
+            return fluent, None
         elif exp[0] in ["exists", "forall"]:  # quantifier operators
             vars_string = " ".join(exp[1])
             vars_res = self._pp_parameters.parseString(vars_string)
@@ -1134,22 +1147,43 @@ class HPDLReader:
         # On the effects of the action and merge them into one simulatedEffect
         return model.SimulatedEffect([fluent(*fluent.signature)], _inner_fun)
 
-    # NOTE: Derived are declared in :predicates, so no need to add
-    # fluent to problem here, they are already in there
+    # TODO: Derived are already included as fluent, we should remove them from problem
     def _parse_derived(self, derived: OrderedDict) -> Dict[str, List[FNode]]:
-
         name = derived[1][0]
         params = self._parse_params(derived[1][1])
 
         fluents = []
         for exp in derived.get("exp", None):  # Add fluents
-            fluent = self._parse_exp({}, exp, {}, params)  # Returns FNode
-            fluents.append(fluent)
+            fluents.append(exp)
 
-        self.derived[name] = fluents
+        # Get params as list(str)
+        header = params.keys()
+        header = ['?' + x for x in header] # Append '?' at the beginning
+
+        self.derived[name] = (header, fluents, params)
 
         # TODO: Wait for discussion #247 before deleting this
         # return model.Derived(name, self._tm.BoolType(), params, self._env, fluents)
+
+                
+    # Replace arguments of exp in d
+    def _change_derived(self, exp, derived, params):
+        """Changes exp (the content defined inside a derived) with the
+        corresponding variables used in the context (params) 
+        """
+        if isinstance(exp, str):
+            if exp in derived:
+                index = derived.index(exp)
+                return params[index]
+            else:
+                return exp
+
+        # exp is a list, loop into it
+        for i in range(len(exp)):
+            # Replace each argument
+            exp[i] = self._change_derived(exp[i], derived, params)
+
+        return exp
 
     def parse_problem(
         self, domain_filename: str, problem_filename: typing.Optional[str] = None

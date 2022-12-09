@@ -398,7 +398,7 @@
  :parameters (?a - aircraft ?c1 ?c2 - city)
  :duration (= ?duration (/ (distance ?c1 ?c2) (slow-speed ?a)))
  :condition (and  (at end (at ?a ?c1)) ; (at end) here only for testing
-                  (hay-tiempo-rapido ?a ?c1 c2)
+                  (hay-tiempo-rapido ?a ?c1 ?c2)
                   (>= (fuel ?a)
                          (* (distance ?c1 ?c2) (slow-burn ?a))))
  :effect (and  (not (at ?a ?c1))
