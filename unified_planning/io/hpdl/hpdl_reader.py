@@ -13,7 +13,6 @@ from unified_planning.environment import Environment, get_env
 from unified_planning.exceptions import UPUsageError
 from unified_planning.io.hpdl import HPDLGrammar
 from unified_planning.model import FNode, expression, problem
-from unified_planning.model.effect import SimulatedEffect
 from unified_planning.model.expression import Expression
 
 if pyparsing.__version__ < "3.0.0":
@@ -384,7 +383,15 @@ class HPDLReader:
     def _parse_function(self, func: OrderedDict) -> model.Fluent:
         name = func[0][0]  # Modified due to added grammar group
         params = self._parse_params(func[0][1])
-        f = model.Fluent(name, self._tm.RealType(), params, self._env)
+
+        # Check for python fluent
+        code = func.get("code", None)
+        if code is not None:
+            f = model.Fluent(name, self._tm.FuncType(), params, self._env, code[0])
+            print(f.code)
+        else:
+            f = model.Fluent(name, self._tm.RealType(), params, self._env)
+        
         if name == "total-cost":
             self.has_actions_cost = True
             self._totalcost = cast(model.FNode, self._em.FluentExp(f))
@@ -1112,42 +1119,8 @@ class HPDLReader:
 
     # _________________________________________________________
 
-    # TODO: Wait for python-fluents discussion
-    def _parse_function_code(
-        self, fluent: model.Fluent, code: str
-    ) -> model.SimulatedEffect:
-
-        # Replace ?var with var
-        for param in fluent.signature:
-            code = code.replace(f"?{param.name}", f"{param.name}")
-
-        # Dont judge me
-        def _inner_fun(
-            problem: model.Problem,
-            state: model.ROState,
-            actual_params: Dict["up.model.parameter.Parameter", "up.model.fnode.FNode"],
-        ):
-            values = {}
-            for param in fluent.signature:
-                values[param.name] = state.get_value(
-                    actual_params.get(param)
-                ).constant_value()
-
-            # Dont judge me 2
-            # TODO: the function must return a list of values that correspond to
-            # the input fluents.
-            # Example:
-            # def fun(problem, state, actual_params):
-            #     value = state.get_value(battery_charge(actual_params.get(robot))).constant_value()
-            #     return [Int(value - 10)]
-            # move.set_simulated_effect(SimulatedEffect([battery_charge(robot)], fun))
-            return eval(code, {}, values)
-
-        # TODO: An action only have one simulatedEffect therefore we have to detect every code_function called
-        # On the effects of the action and merge them into one simulatedEffect
-        return model.SimulatedEffect([fluent(*fluent.signature)], _inner_fun)
-
-    # TODO: Derived are already included as fluent, we should remove them from problem
+    # NOTE: Derived are declared in :predicates, so no need to add
+    # fluent to problem here, they are already in there
     def _parse_derived(self, derived: OrderedDict) -> Dict[str, List[FNode]]:
         name = derived[1][0]
         params = self._parse_params(derived[1][1])
@@ -1225,11 +1198,6 @@ class HPDLReader:
 
         for f in domain_res.get("functions", []):
             func = self._parse_function(f)
-            code = f.get("code", None)
-            if code:
-                simulated_effect = self._parse_function_code(func, code[0])
-                print("effect", simulated_effect)
-
             self.problem.add_fluent(func)
 
         # Must go after functions, as they can be used in derived
