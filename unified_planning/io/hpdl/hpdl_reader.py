@@ -388,7 +388,6 @@ class HPDLReader:
         code = func.get("code", None)
         if code is not None:
             f = model.Fluent(name, self._tm.FuncType(), params, self._env, code[0])
-            print(f.code)
         else:
             f = model.Fluent(name, self._tm.RealType(), params, self._env)
         

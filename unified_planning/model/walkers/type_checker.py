@@ -249,7 +249,7 @@ class TypeChecker(walkers.dag.DagWalker):
     def walk_math_relation(self, expression, args):
         for x in args:
             if x is None or not (
-                x.is_int_type() or x.is_real_type() or x.is_time_type()
+                x.is_int_type() or x.is_real_type() or x.is_time_type() or x.is_func_type()
             ):
                 return None
         return BOOL
