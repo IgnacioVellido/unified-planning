@@ -50,7 +50,7 @@ class HPDLGrammar:
             + ":requirements"
             + OneOrMore(
                 one_of(
-                    ":strips :typing :negative-preconditions :disjunctive-preconditions :equality :existential-preconditions :universal-preconditions :quantified-preconditions :conditional-effects :fluents :numeric-fluents :adl :durative-actions :duration-inequalities :timed-initial-literals :action-costs :hierarchy :htn-expansion :metatags :derived-predicates :negative-preconditions"
+                    ":strips :typing :negative-preconditions :disjunctive-preconditions :disjuntive-preconditions :equality :existential-preconditions :universal-preconditions :quantified-preconditions :conditional-effects :fluents :numeric-fluents :adl :durative-actions :duration-inequalities :timed-initial-literals :action-costs :hierarchy :htn-expansion :metatags :derived-predicates :negative-preconditions"
                 )
             )
             + Suppress(")")
@@ -67,7 +67,7 @@ class HPDLGrammar:
         sec_constants = (
             Suppress("(")
             + ":constants"
-            + OneOrMore(name_list).setResultsName("constants")
+            + ZeroOrMore(name_list).setResultsName("constants")
             + Suppress(")")
         )
 
@@ -257,6 +257,14 @@ class HPDLGrammar:
             + Suppress(")")
         )
 
+        # Time customization
+        sec_customization = Group(
+            Suppress("(")
+            + ":customization"
+            + OneOrMore(nestedExpr())
+            + Suppress(")")
+        )
+
         # ----------------------------------------------------------
 
         problem = (
@@ -270,6 +278,7 @@ class HPDLGrammar:
             + ":domain"
             + name
             + Suppress(")")
+            + Optional(sec_customization.setResultsName("customization"))
             + Optional(sec_requirements)
             + Optional(Suppress("(") + ":objects" + objects + Suppress(")"))
             + Suppress("(")

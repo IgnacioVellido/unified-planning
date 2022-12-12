@@ -14,9 +14,10 @@
 #
 """This module defines all the types."""
 
-import unified_planning
 from fractions import Fraction
-from typing import Iterator, Optional, Dict, Tuple, cast
+from typing import Dict, Iterator, Optional, Tuple, cast
+
+import unified_planning
 from unified_planning.exceptions import UPProblemDefinitionError, UPTypeError
 
 
@@ -393,7 +394,46 @@ def is_compatible_type(
         return True
     if t_left.is_user_type() and t_right.is_user_type():
         assert isinstance(t_left, _UserType) and isinstance(t_right, _UserType)
-        return t_right in t_left.ancestors
+        # TODO: CHECK, BIG CHANGE
+        """
+        In HPDL is possible to do the opposite, use in the domain a supertype of
+        the one declared in the fluent definition, and while planning will only 
+        consider variables of the latter type. See the following examples:
+
+
+        Normal PDDL behavior, that works
+        (:type
+            person - movable
+            movable - object
+        )
+        (:predicates
+            (at ?m - movable)
+        )
+
+        (:action
+            ...
+            (at ?p - person)
+        )
+        It's checked here with "t_right in t_left.ancestors"
+
+
+        This works, and at execution will only substitute ?m for person-type objects
+        (:type
+            person - movable
+            movable - object
+        )
+        (:predicates
+            (at ?p - person)
+        )
+
+        (:action
+            ...
+            (at ?m - movable)
+        )
+        Will fail with the former line, and works with "t_left in t_right.ancestors"
+        """
+        # return t_right in t_left.ancestors
+        return t_right in t_left.ancestors or t_left in t_right.ancestors
     if not (
         (t_left.is_int_type() and t_right.is_int_type())
         or (t_left.is_real_type() and t_right.is_real_type())
