@@ -386,6 +386,7 @@ class HPDLWriter:
         if (
             self.problem_kind.has_continuous_numbers()
             or self.problem_kind.has_discrete_numbers()
+            or self.problem_kind.has_python_fluents()
         ):
             out.write("\n   :fluents")
         if self.problem_kind.has_conditional_effects():
