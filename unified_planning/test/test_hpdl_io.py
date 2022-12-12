@@ -183,6 +183,8 @@ class TestHpdlIO(TestCase):
 """
         print(hpdl_domain)
         print(hpdl_problem)
+        # w.write_domain(os.path.join(PDDL_DOMAINS_PATH, "hpdl", "test_domain.hpdl"))
+        # w.write_problem(os.path.join(PDDL_DOMAINS_PATH, "hpdl", "test_problem.hpdl"))
 
         self.assertEqual(hpdl_domain, expected_domain)
         self.assertEqual(hpdl_problem, expected_problem)

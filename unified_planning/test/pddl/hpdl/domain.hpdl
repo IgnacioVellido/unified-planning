@@ -149,46 +149,32 @@
               
               ; Testing time management
               (
-                ; (and (< ?end 25) (< ?dur 3))
-                (and (> ?start 25) (= ?dur (+ (boarding-time) 5)))
+                (and (> ?start 25) (= ?duration (+ (boarding-time) 5)))
                 (embarcar-pasajeros ?a ?c1 ?c)
               )
 
               (
-                (and (= ?end 40) (<= ?dur (* 2 (slow-speed ?a))))
+                (= ?end 40)
                 (mover-avion ?a ?c1 ?c)
               )
               (
-                (= ?dur 5)
+                (= ?duration 5)
                 (desembarcar-pasajeros ?a ?c)
               )
               (
-                (>= ?dur 6)
+                (>= ?duration 6)
                 (desembarcar-pasajeros ?a ?c)
               )
               (
-                (>= 6 ?dur)
+                (>= 6 ?duration)
                 (desembarcar-pasajeros ?a ?c)
               )
 
               ; Adding two at the same time for one time variable
               (
-                (and (>= ?start 7) (<= ?start (* 2 (slow-speed ?a))))
+                (and (> ?start 7) (<= ?start 23))
                 (desembarcar-pasajeros ?a ?c)
               )
-              ; (
-              ;   (and (> ?start (* 2 (slow-speed ?a))) (< ?start 23))
-              ;   (desembarcar-pasajeros ?a ?c)
-              ; )
-              ; (
-              ;   (and (>= ?start (* 2 (slow-speed ?a))) (< ?start (* 3 (slow-speed ?a))))
-              ;   (desembarcar-pasajeros ?a ?c)
-              ; )
-
-              ; (
-              ;   (and (> ?start 7) (<= ?start 23))
-              ;   (desembarcar-pasajeros ?a ?c)
-              ; )
             )
     )
 
@@ -412,7 +398,7 @@
  :parameters (?a - aircraft ?c1 ?c2 - city)
  :duration (= ?duration (/ (distance ?c1 ?c2) (slow-speed ?a)))
  :condition (and  (at end (at ?a ?c1)) ; (at end) here only for testing
-                  (hay-tiempo-rapido ?a ?c1 c2)
+                  (hay-tiempo-rapido ?a ?c1 ?c2)
                   (>= (fuel ?a)
                          (* (distance ?c1 ?c2) (slow-burn ?a))))
  :effect (and  (not (at ?a ?c1))

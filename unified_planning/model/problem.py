@@ -784,6 +784,8 @@ class Problem(
             self._kind.set_fluents_type("NUMERIC_FLUENTS")
         elif fluent.type.is_user_type():
             self._kind.set_fluents_type("OBJECT_FLUENTS")
+        elif fluent.type.is_func_type():
+            self._kind.set_fluents_type("PYTHON_FLUENTS")
         for p in fluent.signature:
             self._update_problem_kind_type(p.type)
 
