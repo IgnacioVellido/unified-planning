@@ -86,7 +86,7 @@ PDDL_KEYWORDS = {
     "strips",
     "negative-preconditions",
     "typing",
-    "disjuntive-preconditions", # FIXME: SIADEX HAS THIS TYPE IN THE PARSER
+    "disjuntive-preconditions",  # FIXME: SIADEX HAS THIS TYPE IN THE PARSER
     "equality",
     "existential-preconditions",
     "universal-preconditions",
@@ -332,9 +332,7 @@ class HPDLWriter:
         # those 2 maps are "symmetrical", meaning that "(otn[k] == v) implies (nto[v] == k)"
         self.domain_objects: Optional[Dict[_UserType, Set[Object]]] = None
 
-        self.converter = ConverterToPDDLString(
-            self.problem.env, self._get_mangled_name
-        )
+        self.converter = ConverterToPDDLString(self.problem.env, self._get_mangled_name)
 
     def _write_domain(self, out: IO[str]):
         if self.problem_kind.has_intermediate_conditions_and_effects():
@@ -344,7 +342,7 @@ class HPDLWriter:
         if self.problem_kind.has_timed_goals():
             # TODO: Change raise PDDL to HPDL
             raise UPProblemDefinitionError("HPDL does not support timed goals.")
-        
+
         obe = ObjectsExtractor()
         if self.domain_objects is None:
             # This method populates the self._domain_objects map (constants)
@@ -380,7 +378,9 @@ class HPDLWriter:
         if self.problem_kind.has_negative_conditions():
             out.write("\n   :negative-preconditions")
         if self.problem_kind.has_disjunctive_conditions():
-            out.write("\n   :disjuntive-preconditions")  # FIXME: SIADEX HAS THIS TYPO IN THE PARSER
+            out.write(
+                "\n   :disjuntive-preconditions"
+            )  # FIXME: SIADEX HAS THIS TYPO IN THE PARSER
         if self.problem_kind.has_equality():
             out.write("\n   :equality")
         if (
@@ -418,9 +418,9 @@ class HPDLWriter:
                 user_types_hierarchy[None] if None in user_types_hierarchy else []
             )
             # TODO: Check. Because we always add object in hpdl_reader, no need to write it here (CAREFUL with a UPF user)
-            # out.write(
-            #     f'    {" ".join(self._get_mangled_name(t) for t in stack )} - object\n'
-            # )
+            out.write(
+                f'    {" ".join(self._get_mangled_name(t) for t in stack )} - object\n'
+            )
             while stack:
                 current_type = stack.pop()
                 direct_sons: List["unified_planning.model.Type"] = user_types_hierarchy[
@@ -479,7 +479,7 @@ class HPDLWriter:
 
                 if f.type.is_func_type():
                     print(f.code)
-                    functions.append('{\n    ' + f'{f.code}' + '}')
+                    functions.append("{\n    " + f"{f.code}" + "}")
             else:
                 raise UPTypeError("PDDL supports only boolean and numerical fluents")
         if self.problem.kind.has_actions_cost() or self.problem.kind.has_plan_length():
@@ -557,7 +557,7 @@ class HPDLWriter:
             if get_types:  # For domain subtasks
                 res = f"    {self._subtasks_to_str(s, task_params)}"
             else:  # For problem task-goal
-                res = f'    ({self._get_mangled_name(s.task)} {" ".join([str(p) for p in s.parameters])})'
+                res = f'    ({self._get_mangled_name(s.task)} {" ".join([self._get_mangled_name(p.object()) for p in s.parameters])})'
 
             # Write time-constraints
             time_const_str = get_time_constraint(s)
@@ -610,7 +610,7 @@ class HPDLWriter:
 
             for p in network.task.parameters:
                 params[p.name] = p
-        else: # If task-network, only its parameters
+        else:  # If task-network, only its parameters
             for p in network.variables:
                 params[p.name] = p
 
@@ -621,7 +621,9 @@ class HPDLWriter:
                 pass
             elif len(g) > 1:  # Parallels
                 subtasks_str += "    [\n "
-                subtasks_str += "\n ".join([subtasks_to_str(s, get_types, params) for s in g])
+                subtasks_str += "\n ".join(
+                    [subtasks_to_str(s, get_types, params) for s in g]
+                )
                 subtasks_str += "\n    ]\n"
             else:  # Sequential
                 s = g[0]
@@ -661,7 +663,9 @@ class HPDLWriter:
             pre_str, eff_str = self._get_preconditions_effects_str(s.task)
             return f"(:inline (and {pre_str}) (and {eff_str}))"
         else:
-            for p in (
+            for (
+                p
+            ) in (
                 s.parameters
             ):  # Always printing type for variables not defined in :parameters
                 p = p.parameter()
@@ -675,12 +679,10 @@ class HPDLWriter:
                         if c.name == p.name:
                             res += f"{c.name} "
                             found = True
-                            
+
                 # Because mangled_name, getting object in params list
                 if not found:
-                    res += (
-                        f"{self._get_mangled_name(params[p.name])} - {self._get_mangled_name(p.type)} "
-                    )
+                    res += f"{self._get_mangled_name(params[p.name])} - {self._get_mangled_name(p.type)} "
             return res + ")"
 
     # TODO: Put proper indentation
@@ -769,7 +771,9 @@ class HPDLWriter:
                 out.write(")")
                 l, r = a.duration.lower, a.duration.upper
                 if l == r:
-                    out.write(f"\n  :duration (= ?duration {self.converter.convert(l)})")
+                    out.write(
+                        f"\n  :duration (= ?duration {self.converter.convert(l)})"
+                    )
                 else:
                     out.write(f"\n  :duration (and ")
                     if a.duration.is_left_open():
@@ -808,7 +812,9 @@ class HPDLWriter:
                             else:
                                 out.write(f"(at end ")
                             if e.is_conditional():
-                                out.write(f"(when {self.converter.convert(e.condition)}")
+                                out.write(
+                                    f"(when {self.converter.convert(e.condition)}"
+                                )
                             if e.value.is_true():
                                 out.write(f"{self.converter.convert(e.fluent)}")
                             elif e.value.is_false():
@@ -886,7 +892,9 @@ class HPDLWriter:
             elif v.is_false():
                 pass
             else:
-                out.write(f"\n  (= {self.converter.convert(f)} {self.converter.convert(v)})")
+                out.write(
+                    f"\n  (= {self.converter.convert(f)} {self.converter.convert(v)})"
+                )
         if self.problem.kind.has_actions_cost():
             out.write(f"\n  (= (total-cost) 0)")
         out.write("\n )\n")
@@ -974,7 +982,7 @@ class HPDLWriter:
             "up.model.Variable",
         ],
     ) -> str:
-        """This function returns a valid and unique PDDL name."""     
+        """This function returns a valid and unique PDDL name."""
         return _get_pddl_name(item)
         # FIXME: Because method preconditions are printed by the converter, and
         # the object it uses is not the same as the one in otn_renamings, it gives
@@ -1102,6 +1110,7 @@ class HPDLWriter:
             for s in m.subtasks:
                 for p in s.parameters:
                     _update_domain_objects(self.domain_objects, obe.get(p))
+
 
 def _get_pddl_name(
     item: Union[
