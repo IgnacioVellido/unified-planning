@@ -861,21 +861,34 @@ class HPDLWriter:
 
         # Write timed effects
         horizon = 2500 # TODO: Change for problem horizon when included
+        fluents = {}
         for t, effects in self.problem.timed_effects.items():
+            for e in effects:
+                # If already seen this fluent, it is the opposite, and we will
+                # include one 'between' instead
+                # We store a tuple (fluent, t_start, t_end)
+                if e.fluent in fluents:
+                    # Update current value
+                    fluents[e.fluent] = (fluents[e.fluent][0], t.delay, fluents[e.fluent][2])
+                else:
+                    # Normal (at ). Because SIADEX only works with between, put
+                    # horizon
+                    fluents[e.fluent] = (t.delay, horizon, e.value)
+
+        for fluent, t in fluents.items():
             # TODO: Consider (between ) if (at f) and (at (not f)) is found
             # TODO: Check t.timepoint.kind != TimepointKind.GLOBAL_START?
-            for e in effects:
-                if e.value.is_true():
-                    # FIXME: (at) does not work at the moment in SIADEX
-                    # out.write(f"\n  (at {t.delay} {self.converter.convert(e.fluent)})")
-                    out.write(f"\n  (between {t.delay} and {horizon} {self.converter.convert(e.fluent)})")
-                elif e.value.is_false():
-                    # out.write(f"\n  (at {t.delay} (not {self.converter.convert(e.fluent)}))")
-                    out.write(f"\n  (between {t.delay} and {horizon} (not {self.converter.convert(e.fluent)}))")
-                else:
-                    raise UPProblemDefinitionError(
-                        "HPDL only supports boolean timed effects"
-                    )
+            if t[2].is_true():
+                # FIXME: (at) does not work at the moment in SIADEX
+                # out.write(f"\n  (at {t.delay} {self.converter.convert(e.fluent)})")
+                out.write(f"\n  (between {t[0]} and {t[1]} {self.converter.convert(fluent)})")
+            elif t[2].is_false():
+                # out.write(f"\n  (at {t.delay} (not {self.converter.convert(e.fluent)}))")
+                out.write(f"\n  (between {t[0]} and {t[1]} (not {self.converter.convert(fluent)}))")
+            else:
+                raise UPProblemDefinitionError(
+                    "HPDL only supports boolean timed effects"
+                )
 
         # FIXME: Why are we calling initial_values? It's extremely slow
         # for f, v in self.problem.initial_values.items():
