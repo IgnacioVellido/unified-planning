@@ -86,7 +86,7 @@ PDDL_KEYWORDS = {
     "strips",
     "negative-preconditions",
     "typing",
-    "disjuntive-preconditions",  # FIXME: SIADEX HAS THIS TYPE IN THE PARSER
+    "disjuntive-preconditions",  # FIXME: SIADEX HAS THIS TYPO IN THE PARSER
     "equality",
     "existential-preconditions",
     "universal-preconditions",
@@ -355,8 +355,6 @@ class HPDLWriter:
             name = _get_pddl_name(self.problem)
         out.write(f"(domain {name}-domain)\n")
 
-        # TODO: Write customization
-
         if self.needs_requirements:
             self._write_requirements(out)
 
@@ -403,9 +401,6 @@ class HPDLWriter:
             out.write("\n   :duration-inequalities")
         if self.problem_kind.has_actions_cost() or self.problem_kind.has_plan_length():
             out.write("\n   :action-costs")
-        # TODO: Check if metatasks (modify problem_kind.py)
-        # TODO: Check if python-fluents (wait for discussion)
-        # if self.problem_kind.has_hierarchical() # This is checked on init
         out.write("\n   :htn-expansion")
         out.write("\n )\n")
 
@@ -477,7 +472,6 @@ class HPDLWriter:
                 functions.append(f'({self._get_mangled_name(f)}{"".join(params)})')
 
                 if f.type.is_func_type():
-                    print(f.code)
                     functions.append("{\n    " + f"{f.code}" + "}")
             else:
                 raise UPTypeError("HPDL supports only boolean and numerical fluents")
@@ -556,7 +550,18 @@ class HPDLWriter:
             if get_types:  # For domain subtasks
                 res = f"    {self._subtasks_to_str(s, task_params)}"
             else:  # For problem task-goal
-                res = f'    ({self._get_mangled_name(s.task)} {" ".join([self._get_mangled_name(p.object()) for p in s.parameters])})'
+                # FIXME: Sometimes they are object, sometimes they are FNode
+                # FIXME: Sometimes prints in uppercase while objects are defined lowercase
+                params = []
+                for p in s.parameters:
+                    if isinstance(p, FNode):
+                        params.append(str(p))
+                    else:
+                        print(p, type(p))
+                        params.append(self._get_mangled_name(p.object()))
+                
+                res = f'    ({self._get_mangled_name(s.task)} {" ".join(params)})'
+                # res = f'    ({self._get_mangled_name(s.task)} {" ".join([self._get_mangled_name(p.object()) for p in s.parameters])})'
 
             # Write time-constraints
             time_const_str = get_time_constraint(s)
@@ -674,7 +679,6 @@ class HPDLWriter:
                 found = False
                 for _, constants in self.domain_objects.items():
                     for c in constants:
-                        # print("c", c.name)
                         if c.name == p.name:
                             res += f"{c.name} "
                             found = True
@@ -685,7 +689,6 @@ class HPDLWriter:
             return res + ")"
 
     # TODO: Put proper indentation
-    # TODO: Time constraints
     # TODO: What happens with variables not defined on :parameters and used in
     # multiple places??
     def _write_tasks(self, out: IO[str]):
@@ -854,21 +857,22 @@ class HPDLWriter:
         out.write(" (:init")
 
         # Write timed effects
-        # FIXME: (at) does not work in SIADEX
-        # for t, effects in self.problem.timed_effects.items():
-        #     # TODO: Consider (between ) if (at f) and (at (not f)) is found
-        #     # TODO: Check t.timepoint.kind != TimepointKind.GLOBAL_START?
-        #     for e in effects:
-        #         if e.value.is_true():
-        #             # effect_str += (f"{self.converter.convert(e.fluent)}")
-        #             out.write(f"\n  (at {t.delay} {self.converter.convert(e.fluent)})")
-        #         elif e.value.is_false():
-        #             # effect_str += (f"(not {self.converter.convert(e.fluent)})")
-        #             out.write(f"\n  (at {t.delay} (not {self.converter.convert(e.fluent)}))")
-        #         else:
-        #             raise UPProblemDefinitionError(
-        #                 "HPDL only supports boolean timed effects"
-        #             )
+        horizon = 2500 # TODO: Change for problem horizon when included
+        for t, effects in self.problem.timed_effects.items():
+            # TODO: Consider (between ) if (at f) and (at (not f)) is found
+            # TODO: Check t.timepoint.kind != TimepointKind.GLOBAL_START?
+            for e in effects:
+                if e.value.is_true():
+                    # FIXME: (at) does not work at the moment in SIADEX
+                    # out.write(f"\n  (at {t.delay} {self.converter.convert(e.fluent)})")
+                    out.write(f"\n  (between {t.delay} and {horizon} {self.converter.convert(e.fluent)})")
+                elif e.value.is_false():
+                    # out.write(f"\n  (at {t.delay} (not {self.converter.convert(e.fluent)}))")
+                    out.write(f"\n  (between {t.delay} and {horizon} (not {self.converter.convert(e.fluent)}))")
+                else:
+                    raise UPProblemDefinitionError(
+                        "HPDL only supports boolean timed effects"
+                    )
 
         # FIXME: Why are we calling initial_values? It's extremely slow
         # for f, v in self.problem.initial_values.items():
@@ -887,6 +891,7 @@ class HPDLWriter:
             out.write(f"\n  (= (total-cost) 0)")
         out.write("\n )\n")
 
+    # TODO: Write customization
     def _write_customization(self, out: IO[str]):
         out.write(f" (:customization\n")
         out.write(f'  (= :time-format "%d/%m/%Y %H:%M:%S")\n')
