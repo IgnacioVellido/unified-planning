@@ -411,10 +411,13 @@ class HPDLWriter:
             stack: List["unified_planning.model.Type"] = (
                 user_types_hierarchy[None] if None in user_types_hierarchy else []
             )
-            # TODO: Check. Because we always add object in hpdl_reader, no need to write it here (CAREFUL with a UPF user)
-            out.write(
-                f'    {" ".join(self._get_mangled_name(t) for t in stack )} - object\n'
-            )
+            # TODO: Improve. Checkin for object at the top of hierarchy.
+            # Because we always add object in hpdl_reader, no need to write it here (CAREFUL with a UPF user)
+            if not (len(stack) == 1 and stack[0].name == "object"):
+                out.write(
+                    f'    {" ".join(self._get_mangled_name(t) for t in stack )} - object\n'
+                )
+                
             while stack:
                 current_type = stack.pop()
                 direct_sons: List["unified_planning.model.Type"] = user_types_hierarchy[
