@@ -387,7 +387,17 @@ class HPDLReader:
         # Check for python fluent
         code = func.get("code", None)
         if code is not None:
-            f = model.Fluent(name, self._tm.FuncType(), params, self._env, code[0])
+            # Fix no indentation in first line
+            # Count spaces of next non-empty line and put add them to the first
+            lines = [l for l in code[0].split("\n") if len(l) > 0]
+
+            if len(lines) > 1:
+                spaces = len(lines[1]) - len(lines[1].lstrip())
+                lines[0] = " "*spaces + lines[0]
+                
+            code = "\n".join(lines)
+
+            f = model.Fluent(name, self._tm.FuncType(), params, self._env, code)
         else:
             f = model.Fluent(name, self._tm.RealType(), params, self._env)
         

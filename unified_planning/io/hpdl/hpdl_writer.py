@@ -475,7 +475,7 @@ class HPDLWriter:
                 functions.append(f'({self._get_mangled_name(f)}{"".join(params)})')
 
                 if f.type.is_func_type():
-                    functions.append("{\n    " + f"{f.code}" + "}")
+                    functions.append("{\n" + f"{f.code}" + "}")
             else:
                 raise UPTypeError("HPDL supports only boolean and numerical fluents")
         if self.problem.kind.has_actions_cost() or self.problem.kind.has_plan_length():
