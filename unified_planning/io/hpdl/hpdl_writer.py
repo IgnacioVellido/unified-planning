@@ -300,7 +300,7 @@ class HPDLWriter:
     def __init__(self, problem: "up.model.Problem", needs_requirements: bool = True):
         if not isinstance(problem, HierarchicalProblem):
             raise UPProblemDefinitionError(
-                "The given problem is not a HierarchicalProblem, use PDDLWriter intead."
+                "The given problem is not a HierarchicalProblem, use PDDLWriter instead."
             )
         self.problem = problem
         self.problem_kind = self.problem.kind
@@ -337,10 +337,9 @@ class HPDLWriter:
     def _write_domain(self, out: IO[str]):
         if self.problem_kind.has_intermediate_conditions_and_effects():
             raise UPProblemDefinitionError(
-                "PDDL2.1 does not support ICE.\nICE are Intermediate Conditions and Effects therefore when an Effect (or Condition) are not at StartTIming(0) or EndTIming(0)."
+                "HPDL does not support ICE.\nICE are Intermediate Conditions and Effects therefore when an Effect (or Condition) are not at StartTIming(0) or EndTIming(0)."
             )
         if self.problem_kind.has_timed_goals():
-            # TODO: Change raise PDDL to HPDL
             raise UPProblemDefinitionError("HPDL does not support timed goals.")
 
         obe = ObjectsExtractor()
@@ -462,7 +461,7 @@ class HPDLWriter:
                         )
                         i += 1
                     else:
-                        raise UPTypeError("PDDL supports only user type parameters")
+                        raise UPTypeError("HPDL supports only user type parameters")
                 predicates.append(f'({self._get_mangled_name(f)}{"".join(params)})')
             elif f.type.is_int_type() or f.type.is_real_type() or f.type.is_func_type():
                 params = []
@@ -474,14 +473,14 @@ class HPDLWriter:
                         )
                         i += 1
                     else:
-                        raise UPTypeError("PDDL supports only user type parameters")
+                        raise UPTypeError("HPDL supports only user type parameters")
                 functions.append(f'({self._get_mangled_name(f)}{"".join(params)})')
 
                 if f.type.is_func_type():
                     print(f.code)
                     functions.append("{\n    " + f"{f.code}" + "}")
             else:
-                raise UPTypeError("PDDL supports only boolean and numerical fluents")
+                raise UPTypeError("HPDL supports only boolean and numerical fluents")
         if self.problem.kind.has_actions_cost() or self.problem.kind.has_plan_length():
             functions.append("(total-cost)")
 
@@ -499,7 +498,7 @@ class HPDLWriter:
                     f"{self._get_mangled_name(ap)} - {self._get_mangled_name(ap.type)} "
                 )
             else:
-                raise UPTypeError("PDDL supports only user type parameters")
+                raise UPTypeError("HPDL supports only user type parameters")
 
     # TODO: Refactor
     def _get_subtasks_str(
@@ -732,20 +731,9 @@ class HPDLWriter:
         obe = ObjectsExtractor()
         costs = {}
         metrics = self.problem.quality_metrics
-        if len(metrics) == 1:
-            metric = metrics[0]
-            if isinstance(metric, up.model.metrics.MinimizeActionCosts):
-                for a in self.problem.actions:
-                    cost_exp = metric.get_action_cost(a)
-                    costs[a] = cost_exp
-                    if cost_exp is not None:
-                        _update_domain_objects(self.domain_objects, obe.get(cost_exp))
-            elif isinstance(metric, up.model.metrics.MinimizeSequentialPlanLength):
-                for a in self.problem.actions:
-                    costs[a] = self.problem.env.expression_manager.Int(1)
-        elif len(metrics) > 1:
+        if len(metrics) > 0:
             raise up.exceptions.UPUnsupportedProblemTypeError(
-                "Only one metric is supported!"
+                "HPDL does not support metrics!"
             )
 
         for a in self.problem.actions:
