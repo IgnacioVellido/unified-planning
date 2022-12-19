@@ -100,7 +100,9 @@ PDDL_KEYWORDS = {
     "preferences",
     "htn-expansion",
     "metatags",
-    # "derived-predicates",
+    "inline",
+    "derived",
+    "between",
 }
 
 # The following map is used to mangle the invalid names by their class.
