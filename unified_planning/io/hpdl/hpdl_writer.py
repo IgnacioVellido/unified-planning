@@ -27,7 +27,7 @@ from unified_planning.model import (
 from unified_planning.model.htn import HierarchicalProblem, Method, Task, TaskNetwork
 from unified_planning.model.types import _UserType
 
-PDDL_KEYWORDS = {
+HPDL_KEYWORDS = {
     "define",
     "domain",
     "requirements",
@@ -1146,7 +1146,7 @@ def _get_pddl_name(
 
     name = re.sub("[^0-9a-zA-Z_]", "_", name)  # Substitute non-valid elements with "_"
     while (
-        name in PDDL_KEYWORDS
+        name in HPDL_KEYWORDS
     ):  # If the name is in the keywords, apply an underscore at the end until it is not a keyword anymore.
         name = f"{name}_"
     if isinstance(item, up.model.Parameter) or isinstance(item, up.model.Variable):
