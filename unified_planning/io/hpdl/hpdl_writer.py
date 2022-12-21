@@ -25,6 +25,7 @@ from unified_planning.model import (
     Problem,
 )
 from unified_planning.model.htn import HierarchicalProblem, Method, Task, TaskNetwork
+from unified_planning.model.operators import OperatorKind
 from unified_planning.model.types import _UserType
 
 PDDL_KEYWORDS = {
@@ -557,7 +558,18 @@ class HPDLWriter:
             if get_types:  # For domain subtasks
                 res = f"    {self._subtasks_to_str(s, task_params)}"
             else:  # For problem task-goal
-                res = f'    ({self._get_mangled_name(s.task)} {" ".join([self._get_mangled_name(p.object()) for p in s.parameters])})'
+
+                def _get_obj_or_param(something: FNode):
+                    if something.is_parameter_exp():
+                        return something.parameter()
+                    if something.is_object_exp():
+                        return something.object()
+                    if something.is_variable_exp():
+                        return something.variable()
+                    else:
+                        raise
+
+                res = f'    ({self._get_mangled_name(s.task)} {" ".join([self._get_mangled_name(_get_obj_or_param(p)) for p in s.parameters])})'
 
             # Write time-constraints
             time_const_str = get_time_constraint(s)
@@ -910,7 +922,7 @@ class HPDLWriter:
     # FIXME
     def _write_problem(self, out: IO[str]):
         if self.problem.name is None:
-            name = "pddl"
+            name = "hpdl"
         else:
             name = _get_pddl_name(self.problem)
         out.write(f"(define (problem {name}-problem)\n")
