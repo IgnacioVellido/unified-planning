@@ -28,7 +28,7 @@ from unified_planning.model.htn import HierarchicalProblem, Method, Task, TaskNe
 from unified_planning.model.operators import OperatorKind
 from unified_planning.model.types import _UserType
 
-PDDL_KEYWORDS = {
+HPDL_KEYWORDS = {
     "define",
     "domain",
     "requirements",
@@ -87,7 +87,7 @@ PDDL_KEYWORDS = {
     "strips",
     "negative-preconditions",
     "typing",
-    "disjuntive-preconditions",  # FIXME: SIADEX HAS THIS TYPE IN THE PARSER
+    "disjuntive-preconditions",  # FIXME: SIADEX HAS THIS TYPO IN THE PARSER
     "equality",
     "existential-preconditions",
     "universal-preconditions",
@@ -101,7 +101,9 @@ PDDL_KEYWORDS = {
     "preferences",
     "htn-expansion",
     "metatags",
-    # "derived-predicates",
+    "inline",
+    "derived",
+    "between",
 }
 
 # The following map is used to mangle the invalid names by their class.
@@ -301,7 +303,7 @@ class HPDLWriter:
     def __init__(self, problem: "up.model.Problem", needs_requirements: bool = True):
         if not isinstance(problem, HierarchicalProblem):
             raise UPProblemDefinitionError(
-                "The given problem is not a HierarchicalProblem, use PDDLWriter intead."
+                "The given problem is not a HierarchicalProblem, use PDDLWriter instead."
             )
         self.problem = problem
         self.problem_kind = self.problem.kind
@@ -338,10 +340,9 @@ class HPDLWriter:
     def _write_domain(self, out: IO[str]):
         if self.problem_kind.has_intermediate_conditions_and_effects():
             raise UPProblemDefinitionError(
-                "PDDL2.1 does not support ICE.\nICE are Intermediate Conditions and Effects therefore when an Effect (or Condition) are not at StartTIming(0) or EndTIming(0)."
+                "HPDL does not support ICE.\nICE are Intermediate Conditions and Effects therefore when an Effect (or Condition) are not at StartTIming(0) or EndTIming(0)."
             )
         if self.problem_kind.has_timed_goals():
-            # TODO: Change raise PDDL to HPDL
             raise UPProblemDefinitionError("HPDL does not support timed goals.")
 
         obe = ObjectsExtractor()
@@ -356,8 +357,6 @@ class HPDLWriter:
         else:
             name = _get_pddl_name(self.problem)
         out.write(f"(domain {name}-domain)\n")
-
-        # TODO: Write customization
 
         if self.needs_requirements:
             self._write_requirements(out)
@@ -405,9 +404,6 @@ class HPDLWriter:
             out.write("\n   :duration-inequalities")
         if self.problem_kind.has_actions_cost() or self.problem_kind.has_plan_length():
             out.write("\n   :action-costs")
-        # TODO: Check if metatasks (modify problem_kind.py)
-        # TODO: Check if python-fluents (wait for discussion)
-        # if self.problem_kind.has_hierarchical() # This is checked on init
         out.write("\n   :htn-expansion")
         out.write("\n )\n")
 
@@ -418,10 +414,13 @@ class HPDLWriter:
             stack: List["unified_planning.model.Type"] = (
                 user_types_hierarchy[None] if None in user_types_hierarchy else []
             )
-            # TODO: Check. Because we always add object in hpdl_reader, no need to write it here (CAREFUL with a UPF user)
-            out.write(
-                f'    {" ".join(self._get_mangled_name(t) for t in stack )} - object\n'
-            )
+            # TODO: Improve. Checkin for object at the top of hierarchy.
+            # Because we always add object in hpdl_reader, no need to write it here (CAREFUL with a UPF user)
+            if not (len(stack) == 1 and stack[0].name == "object"):
+                out.write(
+                    f'    {" ".join(self._get_mangled_name(t) for t in stack )} - object\n'
+                )
+
             while stack:
                 current_type = stack.pop()
                 direct_sons: List["unified_planning.model.Type"] = user_types_hierarchy[
@@ -463,7 +462,7 @@ class HPDLWriter:
                         )
                         i += 1
                     else:
-                        raise UPTypeError("PDDL supports only user type parameters")
+                        raise UPTypeError("HPDL supports only user type parameters")
                 predicates.append(f'({self._get_mangled_name(f)}{"".join(params)})')
             elif f.type.is_int_type() or f.type.is_real_type() or f.type.is_func_type():
                 params = []
@@ -475,14 +474,13 @@ class HPDLWriter:
                         )
                         i += 1
                     else:
-                        raise UPTypeError("PDDL supports only user type parameters")
+                        raise UPTypeError("HPDL supports only user type parameters")
                 functions.append(f'({self._get_mangled_name(f)}{"".join(params)})')
 
                 if f.type.is_func_type():
-                    print(f.code)
-                    functions.append("{\n    " + f"{f.code}" + "}")
+                    functions.append("{\n" + f"{f.code}" + "}")
             else:
-                raise UPTypeError("PDDL supports only boolean and numerical fluents")
+                raise UPTypeError("HPDL supports only boolean and numerical fluents")
         if self.problem.kind.has_actions_cost() or self.problem.kind.has_plan_length():
             functions.append("(total-cost)")
 
@@ -500,7 +498,7 @@ class HPDLWriter:
                     f"{self._get_mangled_name(ap)} - {self._get_mangled_name(ap.type)} "
                 )
             else:
-                raise UPTypeError("PDDL supports only user type parameters")
+                raise UPTypeError("HPDL supports only user type parameters")
 
     # TODO: Refactor
     def _get_subtasks_str(
@@ -687,7 +685,6 @@ class HPDLWriter:
                 found = False
                 for _, constants in self.domain_objects.items():
                     for c in constants:
-                        # print("c", c.name)
                         if c.name == p.name:
                             res += f"{c.name} "
                             found = True
@@ -698,7 +695,6 @@ class HPDLWriter:
             return res + ")"
 
     # TODO: Put proper indentation
-    # TODO: Time constraints
     # TODO: What happens with variables not defined on :parameters and used in
     # multiple places??
     def _write_tasks(self, out: IO[str]):
@@ -744,20 +740,9 @@ class HPDLWriter:
         obe = ObjectsExtractor()
         costs = {}
         metrics = self.problem.quality_metrics
-        if len(metrics) == 1:
-            metric = metrics[0]
-            if isinstance(metric, up.model.metrics.MinimizeActionCosts):
-                for a in self.problem.actions:
-                    cost_exp = metric.get_action_cost(a)
-                    costs[a] = cost_exp
-                    if cost_exp is not None:
-                        _update_domain_objects(self.domain_objects, obe.get(cost_exp))
-            elif isinstance(metric, up.model.metrics.MinimizeSequentialPlanLength):
-                for a in self.problem.actions:
-                    costs[a] = self.problem.env.expression_manager.Int(1)
-        elif len(metrics) > 1:
+        if len(metrics) > 0:
             raise up.exceptions.UPUnsupportedProblemTypeError(
-                "Only one metric is supported!"
+                "HPDL does not support metrics!"
             )
 
         for a in self.problem.actions:
@@ -878,21 +863,43 @@ class HPDLWriter:
         out.write(" (:init")
 
         # Write timed effects
-        # FIXME: (at) does not work in SIADEX
-        # for t, effects in self.problem.timed_effects.items():
-        #     # TODO: Consider (between ) if (at f) and (at (not f)) is found
-        #     # TODO: Check t.timepoint.kind != TimepointKind.GLOBAL_START?
-        #     for e in effects:
-        #         if e.value.is_true():
-        #             # effect_str += (f"{self.converter.convert(e.fluent)}")
-        #             out.write(f"\n  (at {t.delay} {self.converter.convert(e.fluent)})")
-        #         elif e.value.is_false():
-        #             # effect_str += (f"(not {self.converter.convert(e.fluent)})")
-        #             out.write(f"\n  (at {t.delay} (not {self.converter.convert(e.fluent)}))")
-        #         else:
-        #             raise UPProblemDefinitionError(
-        #                 "HPDL only supports boolean timed effects"
-        #             )
+        horizon = 2500  # TODO: Change for problem horizon when included
+        fluents = {}
+        for t, effects in self.problem.timed_effects.items():
+            for e in effects:
+                # If already seen this fluent, it is the opposite, and we will
+                # include one 'between' instead
+                # We store a tuple (fluent, t_start, t_end)
+                if e.fluent in fluents:
+                    # Update current value
+                    fluents[e.fluent] = (
+                        fluents[e.fluent][0],
+                        t.delay,
+                        fluents[e.fluent][2],
+                    )
+                else:
+                    # Normal (at ). Because SIADEX only works with between, put
+                    # horizon
+                    fluents[e.fluent] = (t.delay, horizon, e.value)
+
+        for fluent, t in fluents.items():
+            # TODO: Consider (between ) if (at f) and (at (not f)) is found
+            # TODO: Check t.timepoint.kind != TimepointKind.GLOBAL_START?
+            if t[2].is_true():
+                # FIXME: (at) does not work at the moment in SIADEX
+                # out.write(f"\n  (at {t.delay} {self.converter.convert(e.fluent)})")
+                out.write(
+                    f"\n  (between {t[0]} and {t[1]} {self.converter.convert(fluent)})"
+                )
+            elif t[2].is_false():
+                # out.write(f"\n  (at {t.delay} (not {self.converter.convert(e.fluent)}))")
+                out.write(
+                    f"\n  (between {t[0]} and {t[1]} (not {self.converter.convert(fluent)}))"
+                )
+            else:
+                raise UPProblemDefinitionError(
+                    "HPDL only supports boolean timed effects"
+                )
 
         # FIXME: Why are we calling initial_values? It's extremely slow
         # for f, v in self.problem.initial_values.items():
@@ -911,6 +918,7 @@ class HPDLWriter:
             out.write(f"\n  (= (total-cost) 0)")
         out.write("\n )\n")
 
+    # TODO: Write customization
     def _write_customization(self, out: IO[str]):
         out.write(f" (:customization\n")
         out.write(f'  (= :time-format "%d/%m/%Y %H:%M:%S")\n')
@@ -1147,7 +1155,7 @@ def _get_pddl_name(
 
     name = re.sub("[^0-9a-zA-Z_]", "_", name)  # Substitute non-valid elements with "_"
     while (
-        name in PDDL_KEYWORDS
+        name in HPDL_KEYWORDS
     ):  # If the name is in the keywords, apply an underscore at the end until it is not a keyword anymore.
         name = f"{name}_"
     if isinstance(item, up.model.Parameter) or isinstance(item, up.model.Variable):
