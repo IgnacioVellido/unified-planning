@@ -111,6 +111,24 @@ class HierarchicalProblem(up.model.problem.Problem):
         minimum time as possible."""
         self._kind = super().kind
         self._kind.set_problem_class("HIERARCHICAL")
+
+        # Check tasks
+        for task in self._abstract_tasks:
+            self._update_problem_kind_task(
+                self.get_task(task)
+            )
+
+        # Check methods
+        linear_checker = up.model.walkers.linear_checker.LinearChecker(self)
+        for method in self._methods:
+            self._update_problem_kind_method(
+                self.method(method),
+                linear_checker
+            )
+        
+        # TODO: CHECK PYTHON FLUENTS
+        # TODO: It is needed to check task_network?
+
         return self._kind
 
     @property
@@ -156,3 +174,25 @@ class HierarchicalProblem(up.model.problem.Problem):
     @property
     def task_network(self):
         return self._initial_task_network
+
+    def _update_problem_kind_task(
+        self,
+        task: "up.model.htn.Task",
+    ):
+        for p in task.parameters:
+            self._update_problem_kind_type(p.type)
+        
+    def _update_problem_kind_method(
+        self,
+        method: "up.model.htn.Method",
+        linear_checker: "up.model.walkers.linear_checker.LinearChecker",
+    ):
+        for p in method.parameters:
+            self._update_problem_kind_type(p.type)
+
+        for c in method.preconditions:
+            self._update_problem_kind_condition(c, linear_checker)
+
+        # TODO: It is needed to check subtasks parameters?
+        # TODO: It is needed to check time-constraints?
+        # NOTE: No need to check inlines, they are stored as actions

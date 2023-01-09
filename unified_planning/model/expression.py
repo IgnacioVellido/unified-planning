@@ -19,12 +19,13 @@ are represented by the same object.
 """
 
 
+from fractions import Fraction
+from typing import Dict, Iterable, List, Tuple, Union
+
 import unified_planning as up
 import unified_planning.model.types
+from unified_planning.exceptions import UPExpressionDefinitionError, UPTypeError
 from unified_planning.model.operators import OperatorKind
-from unified_planning.exceptions import UPTypeError, UPExpressionDefinitionError
-from fractions import Fraction
-from typing import Iterable, List, Union, Dict, Tuple
 
 Expression = Union[
     "up.model.fnode.FNode",
