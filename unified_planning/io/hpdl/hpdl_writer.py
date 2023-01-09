@@ -228,7 +228,7 @@ class ConverterToPDDLString(walkers.DagWalker):
     def walk_param_exp(self, expression, args):
         assert len(args) == 0
         p = expression.parameter()
-        return f"{self.get_mangled_name(p)}"
+        return f"{self.get_mangled_name(p)} - {self.get_mangled_name(p.type)}"
 
     def walk_object_exp(self, expression, args):
         assert len(args) == 0
@@ -294,7 +294,7 @@ class ConverterToPDDLString(walkers.DagWalker):
 
     def walk_equals(self, expression, args):
         assert len(args) == 2
-        return f"(= {args[0]} {args[1]})"
+        return f"(= {args[0].split('-')[0]} {args[1].split('-')[0]})"
 
 
 class HPDLWriter:

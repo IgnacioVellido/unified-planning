@@ -14,6 +14,7 @@ from unified_planning.exceptions import UPUsageError
 from unified_planning.io.hpdl import HPDLGrammar
 from unified_planning.model import FNode, expression, problem
 from unified_planning.model.expression import Expression
+from unified_planning.model.types import is_compatible_type
 
 if pyparsing.__version__ < "3.0.0":
     from pyparsing import ParseResults
@@ -157,7 +158,9 @@ class HPDLReader:
                 header, derived, params = self.derived[op]
 
                 # Change content of derived with the appropriate variables of exp
-                changed = self._change_derived(derived, header, exp[1:]) # exp[0] is the derived name
+                changed = self._change_derived(
+                    derived, header, exp[1:]
+                )  # exp[0] is the derived name
 
                 # Get changed exp as FNode
                 fluent = self._parse_exp({}, changed[0], {}, params)
@@ -393,14 +396,14 @@ class HPDLReader:
 
             if len(lines) > 1:
                 spaces = len(lines[1]) - len(lines[1].lstrip())
-                lines[0] = " "*spaces + lines[0]
-                
+                lines[0] = " " * spaces + lines[0]
+
             code = "\n".join(lines)
 
             f = model.Fluent(name, self._tm.FuncType(), params, self._env, code)
         else:
             f = model.Fluent(name, self._tm.RealType(), params, self._env)
-        
+
         if name == "total-cost":
             self.has_actions_cost = True
             self._totalcost = cast(model.FNode, self._em.FluentExp(f))
@@ -434,7 +437,9 @@ class HPDLReader:
             header, derived, params = self.derived[exp[0]]
 
             # Change content of derived with the appropriate variables of exp
-            changed = self._change_derived(derived, header, exp[1:]) # exp[0] is the derived name
+            changed = self._change_derived(
+                derived, header, exp[1:]
+            )  # exp[0] is the derived name
 
             # Get changed exp as FNode
             fluent = self._parse_exp({}, changed[0], {}, params)
@@ -481,7 +486,9 @@ class HPDLReader:
             header, derived, params = self.derived[exp[0]]
 
             # Change content of derived with the appropriate variables of exp
-            changed = self._change_derived(derived, header, exp[1:]) # exp[0] is the derived name
+            changed = self._change_derived(
+                derived, header, exp[1:]
+            )  # exp[0] is the derived name
 
             # Get changed exp as FNode
             fluent = self._parse_exp({}, changed[0], {}, params)
@@ -1047,6 +1054,7 @@ class HPDLReader:
         # Get precondition params
         method_preconditions = method.get("pre", [])
         for pre in method_preconditions:
+            # print(f"method params: {method_params}")
             pre_params = self._get_params_in_exp(pre)
             method_params.update(pre_params)
 
@@ -1110,13 +1118,19 @@ class HPDLReader:
         # 1: Find subtask params
         subt_params = self._parse_params(subtask["params"])
 
-        # 2: Find params of action/task invoked
-        task_params = OrderedDict({p.name: p.type for p in task.parameters})
-
+        # task_params = OrderedDict({p.name: p.type for p in task.parameters})
         # Set the variable names of task_params to subt_params
         params = OrderedDict()
-        for s_p, t_p in zip(subt_params.items(), task_params.items()):
-            params[s_p[0]] = t_p[1]
+
+        for s_p in subt_params.items():
+            type_method_param = method_params.get(s_p[0], s_p[1])
+            if is_compatible_type(s_p[1], type_method_param):
+                params[s_p[0]] = type_method_param
+            else:
+                params[s_p[0]] = s_p[1]
+
+        # for s_p, t_p in zip(subt_params.items(), task_params.items()):
+        #     params[s_p[0]] = t_p[1]
 
         # 3: Parse exp adding ? to each variable (somehow without ? it fails)
         parameters = [
@@ -1140,18 +1154,17 @@ class HPDLReader:
 
         # Get params as list(str)
         header = params.keys()
-        header = ['?' + x for x in header] # Append '?' at the beginning
+        header = ["?" + x for x in header]  # Append '?' at the beginning
 
         self.derived[name] = (header, fluents, params)
 
         # TODO: Wait for discussion #247 before deleting this
         # return model.Derived(name, self._tm.BoolType(), params, self._env, fluents)
 
-                
     # Replace arguments of exp in d
     def _change_derived(self, exp, derived, params):
         """Changes exp (the content defined inside a derived) with the
-        corresponding variables used in the context (params) 
+        corresponding variables used in the context (params)
         """
         if isinstance(exp, str):
             if exp in derived:

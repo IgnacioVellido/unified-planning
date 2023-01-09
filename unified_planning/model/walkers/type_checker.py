@@ -14,14 +14,15 @@
 #
 
 
-import unified_planning.model.types
+from typing import List, Optional
+
 import unified_planning.environment
+import unified_planning.model.types
 import unified_planning.model.walkers as walkers
-from unified_planning.model.types import BOOL, TIME, _IntType, _RealType
+from unified_planning.exceptions import UPTypeError
 from unified_planning.model.fnode import FNode
 from unified_planning.model.operators import OperatorKind
-from unified_planning.exceptions import UPTypeError
-from typing import List, Optional
+from unified_planning.model.types import BOOL, TIME, _IntType, _RealType
 
 
 class TypeChecker(walkers.dag.DagWalker):
@@ -249,7 +250,10 @@ class TypeChecker(walkers.dag.DagWalker):
     def walk_math_relation(self, expression, args):
         for x in args:
             if x is None or not (
-                x.is_int_type() or x.is_real_type() or x.is_time_type() or x.is_func_type()
+                x.is_int_type()
+                or x.is_real_type()
+                or x.is_time_type()
+                or x.is_func_type()
             ):
                 return None
         return BOOL
