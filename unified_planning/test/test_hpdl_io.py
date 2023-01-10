@@ -34,7 +34,7 @@ from unified_planning.test import (
 from unified_planning.test.examples import get_example_problems
 
 FILE_PATH = os.path.dirname(os.path.abspath(__file__))
-PDDL_DOMAINS_PATH = os.path.join(FILE_PATH, "pddl")
+HPDL_DOMAINS_PATH = os.path.join(FILE_PATH, "pddl/hpdl")
 
 
 class TestHpdlIO(TestCase):
@@ -45,8 +45,8 @@ class TestHpdlIO(TestCase):
     def test_hpdl_reader(self):
         reader = HPDLReader()
 
-        domain_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "domain.hpdl")
-        problem_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "problem.hpdl")
+        domain_filename = os.path.join(HPDL_DOMAINS_PATH, "zenotravel", "domain.hpdl")
+        problem_filename = os.path.join(HPDL_DOMAINS_PATH, "zenotravel", "problem.hpdl")
 
         problem = reader.parse_problem(domain_filename, problem_filename)
 
@@ -94,8 +94,8 @@ class TestHpdlIO(TestCase):
     def test_hpdl_reader_vgdl(self):
         reader = HPDLReader()
 
-        domain_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "vgdl/domain.hpdl")
-        problem_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "vgdl/problem.hpdl")
+        domain_filename = os.path.join(HPDL_DOMAINS_PATH, "vgdl", "domain.hpdl")
+        problem_filename = os.path.join(HPDL_DOMAINS_PATH, "vgdl", "problem.hpdl")
         problem = reader.parse_problem(domain_filename, problem_filename)
 
         assert isinstance(problem, up.model.htn.HierarchicalProblem)
@@ -146,8 +146,8 @@ class TestHpdlIO(TestCase):
     def test_hpdl_writer(self):
         reader = HPDLReader()
 
-        domain_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "domain.hpdl")
-        problem_filename = os.path.join(PDDL_DOMAINS_PATH, "hpdl", "problem.hpdl")
+        domain_filename = os.path.join(HPDL_DOMAINS_PATH, "miconic", "domain.hpdl")
+        problem_filename = os.path.join(HPDL_DOMAINS_PATH, "miconic", "problem.hpdl")
         problem = reader.parse_problem(domain_filename, problem_filename)
 
         w = HPDLWriter(problem)
@@ -155,36 +155,156 @@ class TestHpdlIO(TestCase):
         hpdl_domain = w.get_domain()
         hpdl_problem = w.get_problem()
 
-        expected_domain = """(define (domain basic_with_object_constant-domain)
- (:requirements :strips :typing :negative-preconditions)
- (:types location)
- (:constants
-   l1 - location
+        # print(hpdl_domain)
+        # print(hpdl_problem)
+        # w.write_domain(os.path.join(HPDL_DOMAINS_PATH, "", "test_domain.hpdl"))
+        # w.write_problem(os.path.join(HPDL_DOMAINS_PATH, "", "test_problem.hpdl"))
+
+        expected_domain = """(define (domain prob-domain)
+ (:requirements
+   :strips
+   :typing
+   :negative-preconditions
+   :universal-preconditions
+   :htn-expansion
  )
- (:predicates (is_at ?loc - location))
- (:action move
-  :parameters ( ?l_from - location ?l_to - location)
-  :precondition (and (is_at ?l_from) (not (is_at ?l_to)))
-  :effect (and (not (is_at ?l_from)) (is_at ?l_to)))
- (:action move_to_l1
-  :parameters ( ?l_from - location)
-  :precondition (and (is_at ?l_from) (not (is_at l1)))
-  :effect (and (not (is_at ?l_from)) (is_at l1)))
+ (:types
+    object__compiled - object
+    person floor - object__compiled
+ )
+ (:predicates
+  (type_member_floor ?var - object)
+  (type_member_object__compiled ?var - object)
+  (type_member_person ?var - object)
+  (boarded ?var0 - person)
+  (goal_ ?var0 - person)
+  (lift_at ?var0 - floor)
+  (origin ?var0 - person ?var1 - floor)
+  (destination ?var0 - person ?var1 - floor)
+ )
+ (:task move
+  :parameters (?f1 - object ?f2 - object )
+  (:method move_method1
+   :precondition (and
+    (and (type_member_floor ?f1 - object) (type_member_floor ?f2 - object))
+   )
+   :tasks (
+    (move_primitive ?f1 - object ?f2 - object )
+   )
+  )
+ )
+ (:task board
+  :parameters (?p - object ?f - object )
+  (:method board_method1
+   :precondition (and
+    (and (type_member_person ?p - object) (type_member_floor ?f - object))
+   )
+   :tasks (
+    (board_primitive ?p - object ?f - object )
+   )
+  )
+ )
+ (:task debark
+  :parameters (?p - object ?f - object )
+  (:method debark_method1
+   :precondition (and
+    (and (type_member_person ?p - object) (type_member_floor ?f - object))
+   )
+   :tasks (
+    (debark_primitive ?p - object ?f - object )
+   )
+  )
+ )
+ (:task solve_elevator
+  :parameters ()
+  (:method solve_elevator_m1_abort_ordering_0
+   :precondition (and
+    (forall (?p - person)
+ (not (goal_ ?p)))
+   )
+   :tasks (
+   )
+  )
+  (:method solve_elevator_m1_go_ordering_0
+   :precondition (and
+    (and (type_member_floor ?d - floor) (type_member_floor ?f - floor) (type_member_floor ?o - floor) (type_member_person ?p - person) (goal_ ?p - person) (lift_at ?f - floor) (origin ?p - person ?o - floor) (destination ?p - person ?d - floor))
+   )
+   :tasks (
+    (deliver_person ?p - person ?o - floor ?d - floor )
+    (solve_elevator )
+   )
+  )
+ )
+ (:task deliver_person
+  :parameters (?p - person ?o - floor ?d - floor )
+  (:method deliver_person_m2_ordering_0
+   :precondition (and
+    (and (type_member_floor ?d - floor) (type_member_floor ?f - floor) (type_member_floor ?o - floor) (type_member_person ?p - person) (lift_at ?f - floor))
+   )
+   :tasks (
+    (move ?f - floor ?o - floor )
+    (board ?p - person ?o - floor )
+    (move ?o - floor ?d - floor )
+    (debark ?p - person ?d - floor )
+   )
+  )
+ )
+ (:action move_primitive
+  :parameters (?f1 - floor ?f2 - floor )
+  :precondition (and
+   (lift_at ?f1 - floor)
+  )
+  :effect (and
+   (not (lift_at ?f1 - floor))(lift_at ?f2 - floor)
+  )
+ )
+ (:action board_primitive
+  :parameters (?p - person ?f - floor )
+  :effect (and
+   (boarded ?p - person)
+  )
+ )
+ (:action debark_primitive
+  :parameters (?p - person ?f - floor )
+  :precondition (and
+   (and (boarded ?p - person) (goal_ ?p - person))
+  )
+  :effect (and
+   (not (boarded ?p - person))(not (goal_ ?p - person))
+  )
+ )
 )
 """
-        expected_problem = """(define (problem basic_with_object_constant-problem)
- (:domain basic_with_object_constant-domain)
+        expected_problem = """(define (problem prob-problem)
+ (:domain prob-domain)
+ (:customization
+  (= :time-format "%d/%m/%Y %H:%M:%S")
+  (= :time-horizon-relative 2500)
+  (= :time-start "05/06/2007 08:00:00")
+  (= :time-unit :hours)
+ )
  (:objects
-   l2 - location
+   p0 - person
+   f0 f1 - floor
  )
- (:init (is_at l1))
- (:goal (and (is_at l2)))
-)
-"""
-        print(hpdl_domain)
-        print(hpdl_problem)
-        # w.write_domain(os.path.join(PDDL_DOMAINS_PATH, "hpdl", "test_domain.hpdl"))
-        # w.write_problem(os.path.join(PDDL_DOMAINS_PATH, "hpdl", "test_problem.hpdl"))
+ (:init
+  (lift_at f0)
+  (goal_ p0)
+  (origin p0 f1)
+  (destination p0 f0)
+  (type_member_floor f0)
+  (type_member_floor f1)
+  (type_member_object__compiled f0)
+  (type_member_object__compiled f1)
+  (type_member_object__compiled p0)
+  (type_member_person p0)
+ )
+ (:tasks-goal
+  :tasks (
+    (solve_elevator )
+  )
+ )
+)"""
 
         self.assertEqual(hpdl_domain, expected_domain)
         self.assertEqual(hpdl_problem, expected_problem)
