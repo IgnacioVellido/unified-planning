@@ -567,7 +567,9 @@ class HPDLWriter:
                     else:
                         raise
 
-                res = f'    ({self._get_mangled_name(s.task)} {" ".join([_get_obj_or_param(p).name for p in s.parameters])})'
+                # TODO: Improve
+                res = f'    ({self._get_mangled_name(s.task)} {" ".join([re.sub("[^0-9a-zA-Z_]", "_", _get_obj_or_param(p).name) for p in s.parameters])})'
+                # res = f'    ({self._get_mangled_name(s.task)} {" ".join([_get_obj_or_param(p).name for p in s.parameters])})'
 
             # Write time-constraints
             time_const_str = get_time_constraint(s)
