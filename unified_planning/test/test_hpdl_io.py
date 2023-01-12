@@ -347,8 +347,8 @@ class TestHpdlIO(TestCase):
 
         # print(hpdl_domain)
         # print(hpdl_problem)
-        w.write_domain(os.path.join(HPDL_DOMAINS_PATH, "", "test_domain.hpdl"))
-        w.write_problem(os.path.join(HPDL_DOMAINS_PATH, "", "test_problem.hpdl"))
+        # w.write_domain(os.path.join(HPDL_DOMAINS_PATH, "", "test_domain.hpdl"))
+        # w.write_problem(os.path.join(HPDL_DOMAINS_PATH, "", "test_problem.hpdl"))
 
         expected_domain = """(define (domain prob-domain)
  (:requirements
