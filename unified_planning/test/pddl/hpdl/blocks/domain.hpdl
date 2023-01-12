@@ -61,7 +61,10 @@
     (:method limpiar_ocupado
       :precondition (and (sobre ?y ?x))
       :tasks
-      ((limpiar ?y)(colocar ?y mesa))
+      (
+        (limpiar ?y)
+        (colocar ?y mesa)
+      )
     )
     (:method limpiar_libre
       :precondition (libre ?x)
@@ -74,38 +77,51 @@
     :parameters (?x ?y) (:method colocar
       :precondition ()
       :tasks
-      ((primero-coge ?x)(despues-deja ?x ?y))
+      (
+        (primero-coge ?x)
+        (despues-deja ?x ?y)
+      )
     )
   )
 
   (:task primero-coge
-    :parameters (?x - bloque) (:method cogelo_de_la_mesa
+    :parameters (?x - bloque) 
+    (:method cogelo_de_la_mesa
       :precondition (and (sobremesa ?x))
-      :tasks
-      ((coger ?x))
-    ) (:method cogelo_de_la_pila
+      :tasks (
+        (coger ?x)
+      )
+    )
+    (:method cogelo_de_la_pila
       :precondition (sobre ?x ?y)
-      :tasks
-      ((desapilar ?x ?y))
+      :tasks (
+        (desapilar ?x ?y)
+      )
     )
   )
 
   (:task despues-deja
-    :parameters (?x - bloque ?y - object) (:method dejalo_en_la_mesa
-      :precondition (and (< 0(igual ?y mesa)))
-      :tasks
-      ((dejar ?x))
-    ) (:method dejalo_en_la_pila
+    :parameters (?x - bloque ?y - object) 
+    (:method dejalo_en_la_mesa
+      :precondition (and (< 0 (igual ?y mesa)))
+      :tasks (
+        (dejar ?x)
+      )
+    )
+    (:method dejalo_en_la_pila
       :precondition (distinto ?y mesa)
-      :tasks
-      ((apilar ?x ?y))
+      :tasks (
+        (apilar ?x ?y)
+      )
     )
   )
 
   (:action coger
     :parameters (?x - bloque)
     :precondition (and (sobremesa ?x)(libre ?x)(manovacia))
-    :effect (and (not (sobremesa ?x)) (not (libre ?x))
+    :effect (and 
+      (not (sobremesa ?x))
+      (not (libre ?x))
       (not (manovacia))
       (cogido ?x))
   )
@@ -113,19 +129,35 @@
   (:action dejar
     :parameters (?x - bloque)
     :precondition (and (cogido ?x))
-    :effect (and (sobremesa ?x) (libre ?x) (manovacia)
-      (not (cogido ?x)))
+    :effect (and 
+      (sobremesa ?x)
+      (libre ?x)
+      (manovacia)
+      (not (cogido ?x))
+    )
   )
 
   (:action apilar
     :parameters (?x ?y - bloque)
     :precondition (and (cogido ?x)(libre ?y))
-    :effect (and (not (cogido ?x)) (not (libre ?y)) (libre ?x) (sobre ?x ?y) (manovacia))
+    :effect (and 
+      (not (cogido ?x))
+      (not (libre ?y))
+      (libre ?x)
+      (sobre ?x ?y)
+      (manovacia)
+    )
   )
 
   (:action desapilar
     :parameters (?x ?y - bloque)
     :precondition (and (manovacia) (libre ?x) (sobre ?x ?y))
-    :effect (and (cogido ?x) (libre ?y) (not (libre ?x)) (not (sobre ?x ?y)) (not (manovacia)))
+    :effect (and
+      (cogido ?x)
+      (libre ?y)
+      (not (libre ?x))
+      (not (sobre ?x ?y))
+      (not (manovacia))
+    )
   )
 )
