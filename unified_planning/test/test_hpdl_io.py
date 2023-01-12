@@ -143,7 +143,197 @@ class TestHpdlIO(TestCase):
         )
         self.assertEqual(1, len(problem.task_network.subtasks))  # Goal
 
-    def test_hpdl_writer(self):
+    def test_writer_blocks(self):
+        reader = HPDLReader()
+
+        domain_filename = os.path.join(HPDL_DOMAINS_PATH, "blocks", "domain.hpdl")
+        problem_filename = os.path.join(HPDL_DOMAINS_PATH, "blocks", "problem.hpdl")
+        problem = reader.parse_problem(domain_filename, problem_filename)
+
+        w = HPDLWriter(problem)
+
+        hpdl_domain = w.get_domain()
+        hpdl_problem = w.get_problem()
+
+        expected_domain = """(define (domain bloques_1-domain)
+ (:requirements
+   :strips
+   :typing
+   :fluents
+   :htn-expansion
+ )
+ (:types
+    bloque superficie - object
+ )
+ (:constants
+   mesa - superficie
+ )
+ (:predicates
+  (manovacia)
+  (libre ?x - bloque)
+  (cogido ?x - bloque)
+  (sobremesa ?x - bloque)
+  (sobre ?x - bloque ?y - bloque)
+  (distinto ?x - object ?y - object)
+ )
+ (:functions (igual ?x - object ?y - object)
+  {
+    return ?x == ?y
+    }
+ )
+ (:task sobre
+  :parameters (?x - object ?y - object )
+  (:method sobre_poner_encima
+   :precondition ()
+   :tasks (
+    (limpiar ?x - object )
+    (limpiar ?y - object )
+    (colocar ?x - object ?y - object )
+   )
+  )
+ )
+ (:task limpiar
+  :parameters (?x - object )
+  (:method limpiar_limpiar_mesa
+   :precondition (and
+    (< 0 (igual ?x - object mesa))
+   )
+   :tasks (
+   )
+  )
+  (:method limpiar_limpiar_ocupado
+   :precondition (and
+    (sobre ?y - object ?x - object)
+   )
+   :tasks (
+    (limpiar ?y - object )
+    (colocar ?y - object mesa )
+   )
+  )
+  (:method limpiar_limpiar_libre
+   :precondition (and
+    (libre ?x - object)
+   )
+   :tasks (
+   )
+  )
+ )
+ (:task colocar
+  :parameters (?x - object ?y - object )
+  (:method colocar_colocar
+   :precondition ()
+   :tasks (
+    (primero_coge ?x - object )
+    (despues_deja ?x - object ?y - object )
+   )
+  )
+ )
+ (:task primero_coge
+  :parameters (?x - bloque )
+  (:method primero_coge_cogelo_de_la_mesa
+   :precondition (and
+    (sobremesa ?x - bloque)
+   )
+   :tasks (
+    (coger ?x - bloque )
+   )
+  )
+  (:method primero_coge_cogelo_de_la_pila
+   :precondition (and
+    (sobre ?x - bloque ?y - object)
+   )
+   :tasks (
+    (desapilar ?x - bloque ?y - object )
+   )
+  )
+ )
+ (:task despues_deja
+  :parameters (?x - bloque ?y - object )
+  (:method despues_deja_dejalo_en_la_mesa
+   :precondition (and
+    (< 0 (igual ?y - object mesa))
+   )
+   :tasks (
+    (dejar ?x - bloque )
+   )
+  )
+  (:method despues_deja_dejalo_en_la_pila
+   :precondition (and
+    (<= (igual ?y - object mesa) 0)
+   )
+   :tasks (
+    (apilar ?x - bloque ?y - object )
+   )
+  )
+ )
+ (:action coger
+  :parameters (?x - bloque )
+  :precondition (and
+   (and (sobremesa ?x - bloque) (libre ?x - bloque) (manovacia))
+  )
+  :effect (and
+   (not (sobremesa ?x - bloque))(not (libre ?x - bloque))(not (manovacia))(cogido ?x - bloque)
+  )
+ )
+ (:action dejar
+  :parameters (?x - bloque )
+  :precondition (and
+   (cogido ?x - bloque)
+  )
+  :effect (and
+   (sobremesa ?x - bloque)(libre ?x - bloque)(manovacia)(not (cogido ?x - bloque))
+  )
+ )
+ (:action apilar
+  :parameters (?x - bloque ?y - bloque )
+  :precondition (and
+   (and (cogido ?x - bloque) (libre ?y - bloque))
+  )
+  :effect (and
+   (not (cogido ?x - bloque))(not (libre ?y - bloque))(libre ?x - bloque)(sobre ?x - bloque ?y - bloque)(manovacia)
+  )
+ )
+ (:action desapilar
+  :parameters (?x - bloque ?y - bloque )
+  :precondition (and
+   (and (manovacia) (libre ?x - bloque) (sobre ?x - bloque ?y - bloque))
+  )
+  :effect (and
+   (cogido ?x - bloque)(libre ?y - bloque)(not (libre ?x - bloque))(not (sobre ?x - bloque ?y - bloque))(not (manovacia))
+  )
+ )
+)
+"""
+        expected_problem = """(define (problem bloques_1-problem)
+ (:domain bloques_1-domain)
+ (:customization
+  (= :time-format "%d/%m/%Y %H:%M:%S")
+  (= :time-horizon-relative 2500)
+  (= :time-start "05/06/2007 08:00:00")
+  (= :time-unit :hours)
+ )
+ (:objects
+   a b c - bloque
+ )
+ (:init
+  (sobremesa a)
+  (sobre b a)
+  (sobre c b)
+  (libre c)
+  (manovacia)
+ )
+ (:tasks-goal
+  :tasks (
+    (sobre A C)
+  )
+ )
+)"""
+
+        self.assertEqual(hpdl_domain, expected_domain)
+        self.assertEqual(hpdl_problem, expected_problem)
+
+
+    def test_hpdl_writer_miconic(self):
         reader = HPDLReader()
 
         domain_filename = os.path.join(HPDL_DOMAINS_PATH, "miconic", "domain.hpdl")
@@ -157,8 +347,8 @@ class TestHpdlIO(TestCase):
 
         # print(hpdl_domain)
         # print(hpdl_problem)
-        # w.write_domain(os.path.join(HPDL_DOMAINS_PATH, "", "test_domain.hpdl"))
-        # w.write_problem(os.path.join(HPDL_DOMAINS_PATH, "", "test_problem.hpdl"))
+        w.write_domain(os.path.join(HPDL_DOMAINS_PATH, "", "test_domain.hpdl"))
+        w.write_problem(os.path.join(HPDL_DOMAINS_PATH, "", "test_problem.hpdl"))
 
         expected_domain = """(define (domain prob-domain)
  (:requirements
