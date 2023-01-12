@@ -567,7 +567,7 @@ class HPDLWriter:
                     else:
                         raise
 
-                res = f'    ({self._get_mangled_name(s.task)} {" ".join([self._get_mangled_name(_get_obj_or_param(p)) for p in s.parameters])})'
+                res = f'    ({self._get_mangled_name(s.task)} {" ".join([_get_obj_or_param(p).name for p in s.parameters])})'
 
             # Write time-constraints
             time_const_str = get_time_constraint(s)
