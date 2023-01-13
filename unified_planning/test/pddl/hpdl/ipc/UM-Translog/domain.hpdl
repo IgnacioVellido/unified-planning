@@ -5,17 +5,80 @@
     :negative-preconditions
     :conditional-effects
     :universal-preconditions
-    :disjuntive-preconditions
+    :disjunctive-preconditions
     :equality
     :existential-preconditions
   )
   (:types 
+    equipment_position package_storage_position thing vehicle_position - object  
+    object__compiled - thing
+    physical - object__compiled
+    equipment - object__compiled
+    package - object__compiled
+    speciality - object__compiled
+    vehicle - object__compiled
+    location - thing
+    city - location
+    city_location - location
+    route - thing
+    region - location
+    bulky - physical
+    regular - physical
     air_route - route
+    liquid - package
+    liquid - physical
+    livestock - physical
+    water - liquid
+    not_tcenter - city_location
+
+    traincar - vehicle
+    traincar - vehicle_position
+    regular_traincar - traincar
+    truck - vehicle 
+    regular_truck - truck
+    regular_vehicle - regular
+    regular_vehicle - vehicle
+    regular_traincar - regular_vehicle
+    regular_truck - regular_vehicle
     airplane - regular_vehicle
+    tcenter - city_location
     airport - tcenter
+    granular - physical
+    hub - tcenter
     airport_hub - airport
     airport_hub - hub
+    road_route - route
+    hopper - physical
+    sand - granular
+    sand - package
+    steel - bulky
+    steel - package
+    tanker - physical
+    flatbed - physical
+    flatbed_vehicle - vehicle
+    flatbed_vehicle - flatbed
+    flatbed_traincar - traincar
+    flatbed_traincar - flatbed_vehicle
+    flatbed_truck - flatbed_vehicle
+    flatbed_truck - truck
+    tanker_vehicle - tanker
+    tanker_vehicle - vehicle
+    tanker_traincar - traincar
+    tanker_traincar - tanker_vehicle
+    tanker_truck - tanker_vehicle
+    tanker_truck - truck
+    train - vehicle
+    train_station - tcenter
+    train_station_hub - hub
+    train_station_hub - train_station
+    valuable - package
+
+    water - package
     armored - speciality
+    hopper_vehicle - hopper
+    hopper_vehicle - vehicle
+    armored_vehicle - armored
+    armored_vehicle - vehicle
     armored_flatbed_traincar - traincar
     armored_flatbed_traincar - flatbed_vehicle
     armored_flatbed_traincar - armored_vehicle
@@ -40,63 +103,51 @@
     armored_tanker_truck - tanker_vehicle
     armored_tanker_truck - armored_vehicle
     armored_tanker_truck - truck
-    armored_vehicle - armored
-    armored_vehicle - vehicle
+    ore - granular
+    ore - package
+    parcels - package
+    parcels - regular
+    perishable - package
+    plane_ramp - equipment
+    post_office - not_tcenter
+    rail_route - route
+    refrigerated - speciality
     auto - physical
+    auto_vehicle - vehicle
+    auto_vehicle - auto
+    auto_truck - truck
     auto_traincar - traincar
     auto_traincar - auto_vehicle
-    auto_truck - truck
     auto_truck - auto_vehicle
-    auto_vehicle - auto
-    auto_vehicle - vehicle
-    bulky - physical
     cars - package
     cars - auto
+    hazardous - package
     chemicals - hazardous
     chemicals - perishable
     chemicals - liquid
-    city - location
-    city_location - location
     crane - package_storage_position
     crane - equipment
     customer_location - not_tcenter
-    equipment - object__compiled
-    flatbed - physical
-    flatbed_traincar - traincar
-    flatbed_traincar - flatbed_vehicle
-    flatbed_truck - flatbed_vehicle
-    flatbed_truck - truck
-    flatbed_vehicle - vehicle
-    flatbed_vehicle - flatbed
+    
     food - package
     food - regular
     food - perishable
-    granular - physical
-    hazardous - package
-    hopper - physical
+
     hopper_traincar - traincar
     hopper_traincar - hopper_vehicle
     hopper_truck - truck
     hopper_truck - hopper_vehicle
-    hopper_vehicle - hopper
-    hopper_vehicle - vehicle
-    hub - tcenter
-    liquid - package
-    liquid - physical
-    livestock - physical
+    
     livestock_package - package
     livestock_package - livestock
     livestock_traincar - traincar
+    livestock_vehicle - livestock
+    livestock_vehicle - vehicle
     livestock_traincar - livestock_vehicle
     livestock_truck - livestock_vehicle
     livestock_truck - truck
-    livestock_vehicle - livestock
-    livestock_vehicle - vehicle
+
     local_road_route - road_route
-    location - vehicle_position
-    location - equipment_position
-    location - package_storage_position
-    location - thing
     lumber - bulky
     lumber - package
     mail - physical
@@ -104,27 +155,17 @@
     mail_package - package
     mail_package - regular
     mail_traincar - traincar
+    mail_vehicle - regular_vehicle
+    mail_vehicle - mail
     mail_traincar - mail_vehicle
     mail_truck - mail_vehicle
     mail_truck - truck
-    mail_vehicle - regular_vehicle
-    mail_vehicle - mail
+
     money_art - valuable
     money_art - package
     money_art - regular
-    not_tcenter - city_location
-    object__compiled - thing
-    ore - granular
-    ore - package
-    package - object__compiled
-    parcels - package
-    parcels - regular
-    perishable - package
-    physical - object__compiled
-    plane_ramp - equipment
-    post_office - not_tcenter
-    rail_route - route
-    refrigerated - speciality
+    refrigerated_vehicle - refrigerated
+    refrigerated_vehicle - vehicle
     refrigerated_regular_traincar - regular_vehicle
     refrigerated_regular_traincar - traincar
     refrigerated_regular_traincar - refrigerated_vehicle
@@ -137,45 +178,9 @@
     refrigerated_tanker_truck - tanker_vehicle
     refrigerated_tanker_truck - truck
     refrigerated_tanker_truck - refrigerated_vehicle
-    refrigerated_vehicle - refrigerated
-    refrigerated_vehicle - vehicle
-    region - location
-    regular - physical
-    regular_traincar - regular_vehicle
-    regular_traincar - traincar
-    regular_truck - regular_vehicle
-    regular_truck - truck
-    regular_vehicle - regular
-    regular_vehicle - vehicle
-    road_route - route
-    route - thing
-    sand - granular
-    sand - package
-    speciality - object__compiled
-    steel - bulky
-    steel - package
-    tcenter - city_location
-    tanker - physical
-    tanker_traincar - traincar
-    tanker_traincar - tanker_vehicle
-    tanker_truck - tanker_vehicle
-    tanker_truck - truck
-    tanker_vehicle - tanker
-    tanker_vehicle - vehicle
-    train - vehicle
-    train_station - tcenter
-    train_station_hub - hub
-    train_station_hub - train_station
-    traincar - vehicle_position
-    traincar - vehicle
-    truck - vehicle
-    valuable - package
-    vehicle - equipment_position
-    vehicle - package_storage_position
-    vehicle - object__compiled
-    water - package
-    water - liquid
- equipment_position package_storage_position thing vehicle_position - object  )
+
+    
+    )
 
   (:constants
     Drucker Toshiba_Laptops - parcels
@@ -323,7 +328,7 @@
   )
 
   (:task attach_conveyor_ramp
-    :parameters (?acr_ap - object ?acr_pr - object ?acr_l - object)
+    :parameters (?acr_ap - airplane ?acr_pr - plane_ramp ?acr_l - location)
     (:method method1
       :precondition (and
         (type_member_airplane ?acr_ap)
@@ -1854,7 +1859,7 @@
   )
 
   (:action attach_conveyor_ramp_primitive
-    :parameters (?acr_ap - airplane ?acr_pr - plane_ramp ?acr_l - location)
+    :parameters (?acr_ap - vehicle ?acr_pr - equipment ?acr_l - location)
     :precondition (and
       (Available ?acr_pr)
       (At_Equipment ?acr_pr ?acr_l)

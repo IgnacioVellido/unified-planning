@@ -10,6 +10,7 @@
     :existential-preconditions
   )
   (:types 
+    object__compiled - object 
     waypoint - object__compiled
     mode - object__compiled
     store - object__compiled
@@ -17,7 +18,7 @@
     camera - object__compiled
     lander - object__compiled
     objective - object__compiled
- object__compiled - object  )
+ )
 
   (:constants
   )
@@ -537,9 +538,9 @@
     :effect (and
       (not (available ?r))
       (not (channel_free ?l))
-      (channel_free ?l)
+      ; (channel_free ?l)
       (communicated_soil_data ?p)
-      (available ?r)
+      ; (available ?r)
     )
   )
 
@@ -556,9 +557,9 @@
     :effect (and
       (not (available ?r))
       (not (channel_free ?l))
-      (channel_free ?l)
+      ; (channel_free ?l)
       (communicated_rock_data ?p)
-      (available ?r)
+      ; (available ?r)
     )
   )
 
@@ -575,9 +576,9 @@
     :effect (and
       (not (available ?r))
       (not (channel_free ?l))
-      (channel_free ?l)
+      ; (channel_free ?l)
       (communicated_image_data ?o ?m)
-      (available ?r)
+      ; (available ?r)
     )
   )
 

@@ -5,14 +5,15 @@
     :negative-preconditions
     :conditional-effects
     :universal-preconditions
-    :disjuntive-preconditions
+    :disjunctive-preconditions
     :equality
     :existential-preconditions
   )
   (:types 
+     object__compiled - object
     floor - object__compiled
     person - object__compiled
- object__compiled - object  )
+  )
 
   (:constants
   )

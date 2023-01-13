@@ -5,18 +5,19 @@
     :negative-preconditions
     :conditional-effects
     :universal-preconditions
-    :disjuntive-preconditions
+    :disjunctive-preconditions
     :equality
     :existential-preconditions
   )
   (:types 
+    object__compiled - object
+    locatable - object__compiled
     package - locatable
     capacity_number - object__compiled
     location - object__compiled
     target - object__compiled
     vehicle - locatable
-    locatable - object__compiled
- object__compiled - object  )
+  )
 
   (:constants
   )

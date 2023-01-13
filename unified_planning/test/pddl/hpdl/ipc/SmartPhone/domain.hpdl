@@ -5,11 +5,29 @@
     :negative-preconditions
     :conditional-effects
     :universal-preconditions
-    :disjuntive-preconditions
+    :disjunctive-preconditions
     :equality
     :existential-preconditions
   )
-  (:types 
+  (:types
+    alarm contactable creatable information message selectable - object
+    regularinformation - information
+    contactableinformation - information
+    transferablebysms - information
+    transferablebycall - information
+    transferablebyemail - information
+    transferablebyemailregular - regularinformation
+    transferablebyemailregular - transferablebyemail
+    transferablebyemailcontactable - contactableinformation
+    transferablebyemailcontactable - transferablebyemail
+    transferablebysmsregular - transferablebysms
+    transferablebysmsregular - regularinformation
+    transferablebyphonecontactable - contactableinformation
+    transferablebyphonecontactable - transferablebycall
+    transferablebyphoneregular - transferablebycall
+    transferablebyphoneregular - regularinformation
+    transferablebysmscontactable - contactableinformation
+    transferablebysmscontactable - transferablebysms
     agenda - transferablebyemailregular
     appointment - creatable
     appointment - selectable
@@ -18,7 +36,6 @@
     company - contactable
     contact - creatable
     contact - selectable
-    contactableinformation - information
     date - transferablebyphoneregular
     date - transferablebyemailregular
     date - transferablebysmsregular
@@ -42,31 +59,14 @@
     picture - transferablebyemailregular
     projectplan - transferablebyemailregular
     protocol - transferablebyemailregular
-    regularinformation - information
     route - transferablebyphoneregular
     route - transferablebyemailregular
     route - transferablebysmsregular
     sms - message
     task - creatable
     task - selectable
-    transferablebycall - information
-    transferablebyemail - information
-    transferablebyemailcontactable - contactableinformation
-    transferablebyemailcontactable - transferablebyemail
-    transferablebyemailregular - regularinformation
-    transferablebyemailregular - transferablebyemail
-    transferablebyphonecontactable - contactableinformation
-    transferablebyphonecontactable - transferablebycall
-    transferablebyphoneregular - transferablebycall
-    transferablebyphoneregular - regularinformation
-    transferablebysms - information
-    transferablebysmscontactable - contactableinformation
-    transferablebysmscontactable - transferablebysms
-    transferablebysmsregular - transferablebysms
-    transferablebysmsregular - regularinformation
     video - transferablebyemailregular
-    alarm
- contactable creatable information message selectable - object  )
+ )
 
   (:constants
     appointmentForMeeting - appointment
