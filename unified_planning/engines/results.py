@@ -125,6 +125,7 @@ class PlanGenerationResult(Result):
     engine_name: str
     metrics: Optional[Dict[str, str]] = field(default=None)
     log_messages: Optional[List[LogMessage]] = field(default=None)
+    decomposition_tree: Optional["up.plans.DecompositionTree"] = field(default=None)
 
     def __post__init(self):
         # Checks that plan and status are consistent
