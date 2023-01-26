@@ -26,4 +26,5 @@ __all__ = [
     "TimeTriggeredPlan",
     "PartialOrderPlan",
     "DecompositionTree",
+    "DecompositionTreeNode",
 ]
