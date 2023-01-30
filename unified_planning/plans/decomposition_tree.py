@@ -23,7 +23,7 @@ class DecompositionTreeNode():
         name: str,
         depth: int,
         method: str = None,
-        childs: List[int] = [],
+        children: List[int] = [],
         objects: List["up.model.Object"] = [],
         unif: List["up.model.Parameter"] = []
     ):
@@ -32,7 +32,7 @@ class DecompositionTreeNode():
         self._method = method
         self._type = type
 
-        self._childs = childs
+        self._children = children
 
         self._depth = depth
     
@@ -56,7 +56,7 @@ class DecompositionTreeNode():
         # TODO: Unifications
 
         if self._type == DecompositionTreeNodeKind.TASK_NODE:
-            s.append(f" - Childs: {' '.join([str(c) for c in self._childs])}\n")
+            s.append(f" - Children: {' '.join([str(c) for c in self._children])}\n")
 
         return "".join(s)
 
@@ -93,8 +93,8 @@ class DecompositionTreeNode():
         return self._depth
 
     @property
-    def childs(self) -> List[int]:
-        return self._childs
+    def children(self) -> List[int]:
+        return self._children
 
     @property
     def objects(self) -> List[str]:
@@ -177,12 +177,12 @@ class DecompositionTree():
                 name=name,
                 depth=depth,
                 method=method_name,
-                childs=child_ids,
+                children=child_ids,
                 objects=objects,
                 unif=unif
             )
 
-            # Update depth of childs, one more than current node
+            # Update depth of children, one more than current node
             depth += 1
             for c in child_ids:
                 self._depths[c] = depth
@@ -220,7 +220,7 @@ class DecompositionTree():
                 name=name,
                 depth=depth,
                 method=None,
-                childs=[],
+                children=[],
                 objects=objects,
                 unif=unif
             )
@@ -291,8 +291,8 @@ class DecompositionTree():
         """Return node @id as a DecompositionTreeNode"""
         return self._tree[id]
 
-    def childs(self, id: int) -> List[int]:
-        """Return indexs of childs of node @id"""
+    def children(self, id: int) -> List[int]:
+        """Return indexs of children of node @id"""
         assert id in self._index
         return self._index[id]
 
@@ -319,7 +319,7 @@ class DecompositionTree():
         
 
     def _plot_node(self, id, names=True, objects=True) -> List[str]:
-        """Plots one node and recursively plots childs"""
+        """Plots one node and recursively plots children"""
         s = []
 
         # Number of tabs at the start of the string
@@ -339,7 +339,7 @@ class DecompositionTree():
         s.append(string)
         
         # Recursion
-        for c in self.childs(id):
+        for c in self.children(id):
             s.extend(self._plot_node(c, names, objects))
 
         return s
