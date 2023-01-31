@@ -16,6 +16,8 @@ from unified_planning.model import FNode, expression, problem
 from unified_planning.model.expression import Expression
 from unified_planning.model.types import is_compatible_type
 
+from datetime import datetime
+
 if pyparsing.__version__ < "3.0.0":
     from pyparsing import ParseResults
 else:
@@ -458,6 +460,20 @@ class HPDLReader:
             return self._em.FluentExp(self.problem.fluent(exp))
         elif self.problem.has_object(exp):  # object
             return self._em.ObjectExp(self.problem.object(exp))
+        elif exp[0] == '"' or exp[0] == "'": # date
+
+            date_format = "%Y-%m-%d %H:%M:%S"
+            date = datetime.strptime(exp[1:-1], date_format)
+            print(date)
+
+            # TODO: We could:
+            # 1. Create new exp DateExp (doesn't feel right)
+            # 2. Add Date as possible Timing (trying this)
+            #   - Or as Interval
+            # 3. Transform into a delay and return Timing (difficul, we don't know starting point yet)
+            return self._em.TimingExp(
+                model.StartTiming(date)
+            )
         else:  # number
             n = Fraction(exp)
             if n.denominator == 1:
@@ -1180,6 +1196,24 @@ class HPDLReader:
 
         return exp
 
+
+    def _get_delay_from_date(self, date) -> Fraction:
+        time = datetime.strptime(date, self.time_customization["format"])
+
+        delta = time - self.time_customization["start"]
+
+        delay = delta.total_seconds()
+
+        if "minutes" in self.time_customization["unit"]:
+            delay /= 60
+        elif "hours" in self.time_customization["unit"]:
+            delay /= 3600
+        elif "days" in self.time_customization["unit"]:
+            delay /= (3600 * 24) # We could use delta.days but it rounds to nearer day
+
+        return Fraction(delay)
+
+
     def parse_problem(
         self, domain_filename: str, problem_filename: typing.Optional[str] = None
     ) -> "model.Problem":
@@ -1272,11 +1306,15 @@ class HPDLReader:
 
             self.problem.name = problem_res["name"]
 
-            # TODO: Time customization
+            # Get time customization
             customization = problem_res.get("customization", None)
             if customization is not None:
-                # print(customization)
-                pass
+                self.time_customization = {}
+
+                self.time_customization["format"] = customization[1][2][1:-1] # remove string marks
+                self.time_customization["horizon-relative"] = int(customization[2][2])
+                self.time_customization["start"] = datetime.strptime(customization[3][2][1:-1], self.time_customization["format"])
+                self.time_customization["unit"] = customization[4][2]
 
             objects = problem_res.get("objects", [])
             objects = self._parse_params(objects)
@@ -1346,11 +1384,20 @@ class HPDLReader:
                         self._parse_exp({}, i[1]),
                         self._parse_exp({}, i[2]),
                     )
-                # TODO: Add support for dates also here (change isdigit)
                 elif (  # "and" TI
-                    len(i) == 3 and i[0] == "at" and i[1].replace(".", "", 1).isdigit()
+                    len(i) == 3 and i[0] == "at" and
+                        (i[1].replace(".", "", 1).isdigit() or 
+                         i[1][0] == '"' or i[1][0] == "'") # date
                 ):
-                    ti = model.StartTiming(Fraction(i[1]))
+                    if i[1].replace(".", "", 1).isdigit(): # digit
+                        delay = Fraction(i[1])
+                    else: # date
+                        # Removing string marks
+                        delay = self._get_delay_from_date(i[1][1:-1])
+
+                    ti = model.StartTiming(delay)
+                    print(ti)
+
                     va = self._parse_exp({}, i[2])
                     if va.is_fluent_exp():
                         self.problem.add_timed_effect(ti, va, self._em.TRUE())
@@ -1363,14 +1410,31 @@ class HPDLReader:
                 elif (  # "between" TI
                     len(i) == 4
                     and i[0] == "between"
-                    and i[1].replace(".", "", 1).isdigit()
-                    and i[2].replace(".", "", 1).isdigit()
+                    and (i[1].replace(".", "", 1).isdigit() or 
+                         i[1][0] == '"' or i[1][0] == "'")
+                    and (i[2].replace(".", "", 1).isdigit() or 
+                         i[2][0] == '"' or i[2][0] == "'")
                 ):
                     # TODO: I believe it could be included as an interval, but
                     # for the moment I'll keep it as two time effects, the
                     # provided and the not
-                    lower = model.StartTiming(Fraction(i[1]))
-                    upper = model.StartTiming(Fraction(i[2]))
+                    
+                    # Get delays
+                    if i[1].replace(".", "", 1).isdigit(): # digit
+                        lower_delay = Fraction(i[1])
+                    else: # date
+                        # Removing string marks
+                        lower_delay = self._get_delay_from_date(i[1][1:-1])
+
+                    if i[2].replace(".", "", 1).isdigit(): # digit
+                        upper_delay = Fraction(i[2])
+                    else: # date
+                        # Removing string marks
+                        upper_delay = self._get_delay_from_date(i[2][1:-1])
+
+                    lower = model.StartTiming(lower_delay)
+                    upper = model.StartTiming(upper_delay)
+
                     # ti = model.ClosedTimeInterval(lower, upper)
                     va = self._parse_exp({}, i[3])
                     if va.is_fluent_exp():

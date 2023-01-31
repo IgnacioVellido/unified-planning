@@ -149,7 +149,8 @@
               
               ; Testing time management
               (
-                (and (> ?start 25) (= ?duration (+ (boarding-time) 5)))
+                ; (and (> ?start 25) (= ?duration (+ (boarding-time) 5)))
+                (and (> ?start '2007-06-05 08:20:00') (= ?duration (+ (boarding-time) 5)))
                 (embarcar-pasajeros ?a ?c1 ?c)
               )
 

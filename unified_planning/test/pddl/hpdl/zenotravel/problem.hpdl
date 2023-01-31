@@ -4,10 +4,10 @@
 
 (define (problem zeno-0) (:domain zeno-travel)
 (:customization
-    (= :time-format "%d/%m/%Y %H:%M:%S")
+    (= :time-format "%Y-%m-%d %H:%M:%S")
     (= :time-horizon-relative 2500)
-    (= :time-start "05/06/2007 08:00:00")
-    (= :time-unit :hours)
+    (= :time-start "2007-06-05 08:00:00")
+    (= :time-unit :days)
 )
 
 (:objects 
@@ -18,8 +18,10 @@
     a1 a2 a3 - aircraft
 )
 (:init
-    (at 5 (at p1 huelva))
+    ; (at 5 (at p1 huelva))
+    (at '2007-06-06 08:10:00' (at p1 huelva))
     (between 1 7 (at p2 huelva))
+    ; (between '2007-06-05 08:10:00' '2007-06-05 08:50:00' (at p1 huelva))
     ; (at p1 huelva)
     ; (at p2 huelva)    
     (at p3 huelva)    
