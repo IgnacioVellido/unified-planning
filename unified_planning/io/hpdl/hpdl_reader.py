@@ -461,19 +461,7 @@ class HPDLReader:
         elif self.problem.has_object(exp):  # object
             return self._em.ObjectExp(self.problem.object(exp))
         elif exp[0] == '"' or exp[0] == "'": # date
-
-            date_format = "%Y-%m-%d %H:%M:%S"
-            date = datetime.strptime(exp[1:-1], date_format)
-            print(date)
-
-            # TODO: We could:
-            # 1. Create new exp DateExp (doesn't feel right)
-            # 2. Add Date as possible Timing (trying this)
-            #   - Or as Interval
-            # 3. Transform into a delay and return Timing (difficul, we don't know starting point yet)
-            return self._em.TimingExp(
-                model.StartTiming(date)
-            )
+            raise TypeError("HPDL reader does not support dates appearing in the domain")
         else:  # number
             n = Fraction(exp)
             if n.denominator == 1:
@@ -489,7 +477,7 @@ class HPDLReader:
     ) -> Tuple[
         Union[model.FNode, None], Union[List[Tuple[typing.Any, typing.Any, bool]], None]
     ]:
-        if len(exp) == 0:  # empty precodition
+        if len(exp) == 0:  # empty precondition
             return self._em.TRUE(), None
         elif exp[0] == "-" and len(exp) == 2:  # unary minus
             return None, [(var, exp, True), (var, exp[1], False)]
@@ -640,6 +628,7 @@ class HPDLReader:
                 # act.add_effect(*eff if timing is None else (timing, *eff))  # type: ignore
             elif op == "forall":
                 assert isinstance(exp, ParseResults)
+                # TODO: Clean
                 # Get the list of universal_assignments linked to this action. If it does not exist, default it to the empty list
                 # assert self.universal_assignments is not None
                 # assert act is not None
@@ -1198,6 +1187,9 @@ class HPDLReader:
 
 
     def _get_delay_from_date(self, date) -> Fraction:
+        if not self.time_customization:
+            raise UPUsageError(":customization tag required for dates")
+
         time = datetime.strptime(date, self.time_customization["format"])
 
         delta = time - self.time_customization["start"]
@@ -1308,8 +1300,8 @@ class HPDLReader:
 
             # Get time customization
             customization = problem_res.get("customization", None)
+            self.time_customization = {}
             if customization is not None:
-                self.time_customization = {}
 
                 self.time_customization["format"] = customization[1][2][1:-1] # remove string marks
                 self.time_customization["horizon-relative"] = int(customization[2][2])
@@ -1376,8 +1368,6 @@ class HPDLReader:
                         else:
                             raise NotImplementedError
 
-            # TODO: customization (time format/start/horizon/unit)
-
             for i in problem_res.get("init", []):
                 if i[0] == "=":
                     self.problem.set_initial_value(
@@ -1396,7 +1386,6 @@ class HPDLReader:
                         delay = self._get_delay_from_date(i[1][1:-1])
 
                     ti = model.StartTiming(delay)
-                    print(ti)
 
                     va = self._parse_exp({}, i[2])
                     if va.is_fluent_exp():
