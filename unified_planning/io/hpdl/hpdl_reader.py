@@ -12,7 +12,7 @@ from unified_planning import model
 from unified_planning.environment import Environment, get_env
 from unified_planning.exceptions import UPUsageError
 from unified_planning.io.hpdl import HPDLGrammar
-from unified_planning.model import FNode, expression, problem
+from unified_planning.model import FNode, expression, problem, Bind
 from unified_planning.model.expression import Expression
 from unified_planning.model.types import is_compatible_type
 
@@ -524,6 +524,11 @@ class HPDLReader:
             return None, [(var, exp, True)]
         elif len(exp) == 1:  # expand an element inside brackets
             return None, [(var, exp[0], False)]
+        elif exp[0] == "bind" and len(exp) == 3: # bind assignment
+            res = [(var, exp, True)]
+            for e in exp[1:]:
+                res.append((var, e, False))
+            return None, res
         else:
             raise SyntaxError(f"Not able to handle: {exp}")
 
@@ -563,6 +568,9 @@ class HPDLReader:
                 elif exp[0] in assignments:  # quantified assignment variable
                     assert len(exp) == 1
                     solved.append(self._em.ObjectExp(assignments[exp[0]]))
+                elif exp[0] == "bind": # bind assignment
+                    assert len(exp) == 3
+                    solved.append(Bind(*[solved.pop() for _ in exp[1:]]))
                 else:
                     raise up.exceptions.UPUnreachableCodeError
             else:
@@ -860,7 +868,13 @@ class HPDLReader:
 
             # Check for single strings
             # (probably won't return anything, as each string is only one word)
-            if isinstance(exp, str):
+            if exp == "bind": # TODO: Improve
+                var = stack.pop()
+                if var[0] == "?":
+                    params[var[1:]] = self.types_map["object"]
+                else:
+                    raise ValueError(f"Bind expression not well-defined")
+            elif isinstance(exp, str):
                 params.update(self._parse_params_and_types(exp))
             elif len(exp) >= 2:
                 # Check if all elements are strings
@@ -868,13 +882,12 @@ class HPDLReader:
                     params.update(self._parse_params_and_types(exp))
                 else:
                     # Find params in each sub expression
-                    for e in exp:
+                    for e in reversed(exp): # From beginning to end (inverse stack)
                         stack.append(e)
-
         return params
 
     def _parse_params_and_types(self, params: List[str]) -> List[str]:
-        """Parses a list of parameters and returns a list of the parameters names. Only returns declared paramaters (?o - <type>)"""
+        """Parses a list of parameters and returns a list of the parameters names. Only returns declared parameters (?o - <type>)"""
 
         def parse_type(type: str):
             if type in self.types_map:
@@ -892,9 +905,10 @@ class HPDLReader:
                     res_params[params[i][1:]] = parse_type(params[i + 2])
                     i += 3
                 else:  # No type specified, ignore
-                    i += 1
+                    # res_params[params[i][1:]] = self.types_map["object"]
                     # In case we need to get non-specified params,
-                    # change line above
+                    # uncomment line above
+                    i += 1
 
             else:  # Not a param, ignore
                 i += 1
