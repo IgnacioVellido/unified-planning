@@ -288,6 +288,10 @@
                     )      
       :tasks (
               (zoom ?a ?c1 ?c2)
+              (:inline
+                (bind ?k (num-pasajeros ?a))
+                ()
+              )
             )
     )
 
