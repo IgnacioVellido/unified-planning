@@ -21,6 +21,7 @@ import unified_planning.model.types
 import unified_planning.model.walkers as walkers
 from unified_planning.exceptions import UPTypeError
 from unified_planning.model.fnode import FNode
+from unified_planning.model.bind import Bind
 from unified_planning.model.operators import OperatorKind
 from unified_planning.model.types import BOOL, TIME, _IntType, _RealType
 
@@ -76,6 +77,14 @@ class TypeChecker(walkers.dag.DagWalker):
             if not arg.is_compatible(param.type):
                 return None
         return f.type
+
+    def walk_bind(
+        self, bind: Bind, args: List["unified_planning.model.types.Type"]
+    ) -> Optional["unified_planning.model.types.Type"]:
+        # TODO
+        # assert expression.is_fluent_exp()
+        # return bind.fluent.type
+        return BOOL # Otherwise fails, somewhere requires a bool type
 
     def walk_param_exp(
         self, expression: FNode, args: List["unified_planning.model.types.Type"]
