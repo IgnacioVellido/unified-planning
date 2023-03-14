@@ -78,11 +78,13 @@ class TypeChecker(walkers.dag.DagWalker):
                 return None
         return f.type
 
+    @walkers.handles(OperatorKind.BIND)
     def walk_bind(
-        self, bind: Bind, args: List["unified_planning.model.types.Type"]
+        self, bind: FNode, args: List["unified_planning.model.types.Type"]
     ) -> Optional["unified_planning.model.types.Type"]:
         # TODO
-        # assert expression.is_fluent_exp()
+        assert type(bind) is Bind 
+        # assert bind.is_fluent_exp()
         # return bind.fluent.type
         return BOOL # Otherwise fails, somewhere requires a bool type
 

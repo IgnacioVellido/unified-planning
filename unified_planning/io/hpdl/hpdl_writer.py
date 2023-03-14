@@ -9,6 +9,7 @@ from warnings import warn
 
 import unified_planning as up
 import unified_planning.environment
+from unified_planning.model.bind import Bind
 import unified_planning.model.walkers as walkers
 from unified_planning.exceptions import (
     UPException,
@@ -295,6 +296,12 @@ class ConverterToPDDLString(walkers.DagWalker):
     def walk_equals(self, expression, args):
         assert len(args) == 2
         return f"(= {args[0].split('-')[0]} {args[1].split('-')[0]})"
+
+    def walk_bind(self, bind: Bind, args):
+        # Fluent: walk the fluent so its automatically written
+        # Overriding - for _, etc... 
+        fluent = self.walk(bind.fluent)
+        return  f"(bind ?{bind.parameter} {fluent})"
 
 
 class HPDLWriter:

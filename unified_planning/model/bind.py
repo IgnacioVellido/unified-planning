@@ -39,7 +39,7 @@ class Bind:
         assert (
             fluent.environment == parameter.environment
         ), "Bind fluent and parameter have different environment."
-        print(self)
+        # print(self)
 
     def __repr__(self) -> str:
         return f"bind ?{str(self._parameter)} <- {str(self._fluent)}"
