@@ -85,3 +85,106 @@ class Bind:
     def node_type(self) -> OperatorKind:
         """Returns the `OperatorKind` that defines the semantic of this expression."""
         return OperatorKind.BIND
+
+
+
+    # TODO: This shouldn't be here. Maybe Bind should be a subtype of FNode
+    def is_bool_constant(self) -> bool:
+        """Test whether the expression is a `boolean` constant."""
+        return False
+
+    def is_int_constant(self) -> bool:
+        """Test whether the expression is an `integer` constant."""
+        return False
+
+    def is_real_constant(self) -> bool:
+        """Test whether the expression is a `real` constant."""
+        return False
+
+    def is_true(self) -> bool:
+        """Test whether the expression is the `True` Boolean constant."""
+        return False
+
+    def is_false(self) -> bool:
+        """Test whether the expression is the `False` Boolean constant."""
+        return False
+
+    def is_and(self) -> bool:
+        """Test whether the node is the `And` operator."""
+        return False
+
+    def is_or(self) -> bool:
+        """Test whether the node is the `Or` operator."""
+        return False
+
+    def is_not(self) -> bool:
+        """Test whether the node is the `Not` operator."""
+        return False
+
+    def is_implies(self) -> bool:
+        """Test whether the node is the `Implies` operator."""
+        return False
+
+    def is_iff(self) -> bool:
+        """Test whether the node is the `Iff` operator."""
+        return False
+
+    def is_exists(self) -> bool:
+        """Test whether the node is the `Exists` operator."""
+        return False
+
+    def is_forall(self) -> bool:
+        """Test whether the node is the `Forall` operator."""
+        return False
+
+    def is_fluent_exp(self) -> bool:
+        """Test whether the node is a :class:`~unified_planning.model.Fluent` Expression."""
+        return False
+
+    def is_parameter_exp(self) -> bool:
+        """Test whether the node is an :func:`action parameter <unified_planning.model.Action.parameters>`."""
+        return False
+
+    def is_variable_exp(self) -> bool:
+        """Test whether the node is a :class:`~unified_planning.model.Variable` Expression."""
+        return False
+
+    def is_object_exp(self) -> bool:
+        """Test whether the node is an :class:`~unified_planning.model.Object` Expression."""
+        return False
+
+    def is_timing_exp(self) -> bool:
+        """Test whether the node is a :class:`~unified_planning.model.Timing` Expression."""
+        return False
+
+    def is_plus(self) -> bool:
+        """Test whether the node is the `Plus` operator."""
+        return False
+
+    def is_minus(self) -> bool:
+        """Test whether the node is the `Minus` operator."""
+        return False
+
+    def is_times(self) -> bool:
+        """Test whether the node is the `Times` operator."""
+        return False
+
+    def is_div(self) -> bool:
+        """Test whether the node is the `Div` operator."""
+        return False
+
+    def is_equals(self) -> bool:
+        """Test whether the node is the `Equals` operator."""
+        return False
+
+    def is_le(self) -> bool:
+        """Test whether the node is the `LE` operator."""
+        return False
+
+    def is_lt(self) -> bool:
+        """Test whether the node is the `LT` operator."""
+        return False
+
+    def is_dot(self) -> bool:
+        """Test whether the node is the `DOT` operator."""
+        return False
