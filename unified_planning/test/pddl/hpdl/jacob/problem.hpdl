@@ -1,0 +1,194 @@
+(define (problem labelTachograph) (:domain JACOB)
+	(:customization
+		(= :time-format "%d/%m/%Y %H:%M:00")
+		(= :time-horizon-relative 86400)
+		(= :time-start "05/06/2007 08:00:00")
+		(= :time-unit :minutes)
+	)
+	(:objects
+		driver - Driver
+
+		D1 D2 D3 D4 D5 D6 D7 D8
+		O1 O2 O3 O4 O5
+		B1 B2 B3 B4 B5
+	- TaskInstanceSymbol
+	)
+	(:init
+		; Problem task: Recognize or Generate
+		; (modo_generar)
+		(modo_reconocer)
+
+		; Initialize contexts
+		(legal-context yes)
+		(token-context none)
+		(sequence-context none)
+		(breakType-context none)
+		(dayType-context none)
+		(= (week-counter) 1)
+		(= (day-counter) 1)
+
+		; Initialize functions
+		(= (hours_in_mins) 60)
+		(= (current_index_action) 0)
+
+		(= (actual-timestamp) 0)
+		(= (last_dr) 0)
+		(= (dt_bwd) 1)
+		(= (dt_previous_wd) 1)
+		(= (dt_wd) 1)
+		(= (edds_in_week) 1)
+		(= (last_wr) 0)
+		
+
+		; Events
+		(index_action B1 0)
+		(is_action B1)
+		(is_typeB B1)
+		(start_action B1 0)
+		(end_action B1 5)
+		(duration_action B1 5 )
+		(parameters_typeB B1 driver)
+
+		(index_action D1 1)
+		(is_action D1)
+		(is_typeD D1)
+		(start_action D1 5)
+		(end_action D1 56)
+		(duration_action D1 51 )
+		(parameters_typeD D1 driver)
+
+		(index_action B2 2)
+		(is_action B2)
+		(is_typeB B2)
+		(start_action B2 56)
+		(end_action B2 193)
+		(duration_action B2 137 )
+		(parameters_typeB B2 driver)
+
+		(index_action D2 3)
+		(is_action D2)
+		(is_typeD D2)
+		(start_action D2 193)
+		(end_action D2 195)
+		(duration_action D2 2 )
+		(parameters_typeD D2 driver)
+
+		(index_action O1 4)
+		(is_action O1)
+		(is_typeO O1)
+		(start_action O1 195)
+		(end_action O1 198)
+		(duration_action O1 3 )
+		(parameters_typeO O1 driver)
+
+		(index_action D3 5)
+		(is_action D3)
+		(is_typeD D3)
+		(start_action D3 198)
+		(end_action D3 200)
+		(duration_action D3 2 )
+		(parameters_typeD D3 driver)
+
+		(index_action O2 6)
+		(is_action O2)
+		(is_typeO O2)
+		(start_action O2 200)
+		(end_action O2 202)
+		(duration_action O2 2 )
+		(parameters_typeO O2 driver)
+
+		(index_action B3 7)
+		(is_action B3)
+		(is_typeB B3)
+		(start_action B3 202)
+		(end_action B3 273)
+		(duration_action B3 71 )
+		(parameters_typeB B3 driver)
+
+		(index_action D4 8)
+		(is_action D4)
+		(is_typeD D4)
+		(start_action D4 273)
+		(end_action D4 274)
+		(duration_action D4 1 )
+		(parameters_typeD D4 driver)
+
+		(index_action O3 9)
+		(is_action O3)
+		(is_typeO O3)
+		(start_action O3 274)
+		(end_action O3 278)
+		(duration_action O3 4 )
+		(parameters_typeO O3 driver)
+
+		(index_action D5 10)
+		(is_action D5)
+		(is_typeD D5)
+		(start_action D5 278)
+		(end_action D5 327)
+		(duration_action D5 49 )
+		(parameters_typeD D5 driver)
+
+		(index_action O4 11)
+		(is_action O4)
+		(is_typeO O4)
+		(start_action O4 327)
+		(end_action O4 337)
+		(duration_action O4 10 )
+		(parameters_typeO O4 driver)
+
+		(index_action D6 12)
+		(is_action D6)
+		(is_typeD D6)
+		(start_action D6 337)
+		(end_action D6 397)
+		(duration_action D6 60 )
+		(parameters_typeD D6 driver)
+
+		(index_action O5 13)
+		(is_action O5)
+		(is_typeO O5)
+		(start_action O5 397)
+		(end_action O5 402)
+		(duration_action O5 5 )
+		(parameters_typeO O5 driver)
+
+		(index_action D7 14)
+		(is_action D7)
+		(is_typeD D7)
+		(start_action D7 402)
+		(end_action D7 403)
+		(duration_action D7 1 )
+		(parameters_typeD D7 driver)
+
+		(index_action B4 15)
+		(is_action B4)
+		(is_typeB B4)
+		(start_action B4 403)
+		(end_action B4 514)
+		(duration_action B4 111 )
+		(parameters_typeB B4 driver)
+
+		(index_action D8 16)
+		(is_action D8)
+		(is_typeD D8)
+		(start_action D8 514)
+		(end_action D8 571)
+		(duration_action D8 57 )
+		(parameters_typeD D8 driver)
+
+		(index_action B5 17)
+		(is_action B5)
+		(is_typeB B5)
+		(start_action B5 571)
+		(end_action B5 572)
+		(duration_action B5 1 )
+		(parameters_typeB B5 driver)
+	)
+
+	(:tasks-goal
+		:tasks (
+			(WD driver)
+		)
+	)
+)
