@@ -285,6 +285,8 @@
                       (hay-fuel-rapido ?a ?c1 ?c2) ; Hay fuel para el vuelo
                       (no-sobrepasado-fuel-rapido ?a ?c1 ?c2) ; No sobrepasa el limite
                       (hay-tiempo-rapido ?a ?c1 ?c2) ; Hay tiempo para el vuelo
+                      
+                      (bind ?k2 (num-pasajeros ?a)) ; Test bind in preconditions
                     )      
       :tasks (
               (zoom ?a ?c1 ?c2)
