@@ -298,10 +298,26 @@ class ConverterToPDDLString(walkers.DagWalker):
         return f"(= {args[0].split('-')[0]} {args[1].split('-')[0]})"
 
     def walk_bind(self, bind: Bind, args):
-        # Fluent: walk the fluent so its automatically written
-        # Overriding - for _, etc... 
-        fluent = self.walk(bind.fluent)
-        return  f"(bind ?{bind.parameter} {fluent})"
+        # THIS FAILS WHEN BIND IN PRECONDITIONS. Walk(fluent) can't be called inside walk
+        # fluent = self.walk(bind.fluent)
+        # return  f"(bind ?{bind.parameter} {fluent})"
+
+        content = bind.fluent
+
+        # Content is fluent
+        if content.is_fluent_exp():
+            fluent = content.fluent()
+        elif content.is_int_constant():
+            fluent = content.int_constant_value()
+            return f"(bind ?{bind.parameter} {fluent})"
+        elif content.is_real_constant():
+            fluent = content.real_constant_value()
+            return f"(bind ?{bind.parameter} {fluent})"
+        elif content.is_parameter_exp():
+            fluent = content.parameter()
+        else:
+            raise ValueError("Expression used in bind not supported")
+        return f"(bind ?{bind.parameter} ({self.get_mangled_name(fluent)}))"
 
 
 class HPDLWriter:
