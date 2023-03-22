@@ -449,6 +449,14 @@ class HPDLReader:
             return fluent, None
         elif exp in assignments:  # quantified assignment variable
             return self._em.ObjectExp(assignments[exp])
+        elif exp == '?dur': # Duration variable (TODO: Add ?start and ?end)
+            return self._em.ParameterExp(
+                model.Parameter(
+                    exp[1:],
+                    self._env.type_manager.RealType(), 
+                    self._env
+                )
+            )
         elif exp[0] == "?":  # action parameter
             assert available_params is not None, "valid_params cannot be None"
             assert exp[1:] in available_params, f"Invalid parameter {exp[1:]}"
@@ -516,7 +524,10 @@ class HPDLReader:
             for e in exp[1:]:
                 # If type is received, exp declares an
                 # object and is processed in build_method
-                if e != "-" and not self.problem.has_type(e):
+
+                # No number type. has_type checks values (not keys) from types_map,
+                # but number is real there
+                if e != "-" and not self.problem.has_type(e) and not e == "number":
                     res.append((var, e, False))
             return None, res
         elif exp[0] in assignments:  # quantified assignment variable
@@ -562,7 +573,9 @@ class HPDLReader:
                     args = [
                         solved.pop()
                         for e in exp[1:]
-                        if e != "-" and not self.problem.has_type(e)
+                        # No number type. has_type checks values (not keys) from types_map,
+                        # but number is real there
+                        if e != "-" and not self.problem.has_type(e) and not e == "number"
                     ]
                     solved.append(self._em.FluentExp(f, tuple(args)))
                 elif exp[0] in assignments:  # quantified assignment variable
@@ -708,9 +721,10 @@ class HPDLReader:
             )
 
         # Add conditions to action
-        conditions = self._parse_condition(cond, params)
-        for c in conditions:
-            dur_act.add_condition(c[0], c[1])
+        if cond: # If not empty
+            conditions = self._parse_condition(cond, params)
+            for c in conditions:
+                dur_act.add_condition(c[0], c[1])
 
         # Add each effect to action
         self._add_timed_effects(dur_act, params, self.universal_assignments, eff)
@@ -871,12 +885,13 @@ class HPDLReader:
             if exp == "bind": # TODO: Improve
                 var = stack.pop()
                 if var[0] == "?":
-                    params[var[1:]] = self.types_map["object"]
+                    params[var[1:]] = self.types_map["number"]
                 else:
                     raise ValueError(f"Bind expression not well-defined")
             elif isinstance(exp, str):
                 params.update(self._parse_params_and_types(exp))
-            elif len(exp) >= 2:
+            # elif len(exp) >= 2:
+            else: # Accepting also list inside list
                 # Check if all elements are strings
                 if all(isinstance(e, str) for e in exp):
                     params.update(self._parse_params_and_types(exp))
@@ -1073,7 +1088,6 @@ class HPDLReader:
         # Get precondition params
         method_preconditions = method.get("pre", [])
         for pre in method_preconditions:
-            # print(f"method params: {method_params}")
             pre_params = self._get_params_in_exp(pre)
             method_params.update(pre_params)
 
@@ -1253,6 +1267,10 @@ class HPDLReader:
             self.types_map["object"] = self._env.type_manager.UserType(
                 "object", None
             )  # We manually define it.
+
+        # For HPDL number is an implicit type. We manually define it.
+        if "number" not in self.types_map:
+            self.types_map["number"] = self._env.type_manager.IntType(None, None)
 
         for p in domain_res.get("predicates", []):
             fluent = self._parse_predicate(p)
