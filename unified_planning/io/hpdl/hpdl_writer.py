@@ -758,7 +758,6 @@ class HPDLWriter:
                     elif p.type.is_int_type() or p.type.is_real_type():
                         res += f"{self._get_mangled_name(params[p.name])} - number "
                     else:
-                        print(p.name, p.type)
                         raise UPTypeError("HPDL supports only user or number type parameters")
                     
             return res + ")"
