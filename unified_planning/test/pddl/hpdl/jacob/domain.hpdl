@@ -10,6 +10,9 @@
         TipoAccion
         Driver
         context
+
+        ; Zenotravel
+        box city - object
     )
 
     ; =========================================================================
@@ -78,6 +81,11 @@
         (next_break_is_rest)
 
         (is_activity_illegal) ; To set legal context ("no" if some other context is none)
+
+        ; Zenotravel
+        (at ?o - object ?c - city)
+        (in ?b - box ?d - Driver)
+        (destination ?b - box ?c - city)
     )
 
     ; =========================================================================
@@ -122,6 +130,114 @@
         (last_wr) ; Last timestamp a Weekly Rest was detected
 
         (actual-timestamp)
+
+        ;***********************************
+        ; Generate mode - Zenotravel
+        ;***********************************
+        ; 4.5 - dt_activity
+        ; 9 - dt_dd      si dt_dd < 9
+        ; 10 - dt_dd    si dt_dd > 9 < 10
+        (calculate_duration_D ?d - Driver ?dt_dd ?dt_activity ?dt_wd ?preference_dd ?preference_cdd - number) {
+            dur = -1
+
+            # Deciding between NDD or EDD
+            max_hours = 10 if (?dt_dd > (9*60) or ?preference_dd == 1) else 9
+
+            # If dt_dd already bigger than 10, returning negative value
+            dur = (max_hours * 60) - ?dt_dd
+
+            # Do not surpass CDD time limit
+            cdd_remaining = (4.5*60) - ?dt_activity
+
+            # Do not surpass DT_WD time limit
+            wd_remaining = (56*60) - ?dt_wd
+
+            # Return the smallest
+            dur = dur if (dur < cdd_remaining) else cdd_remaining
+            dur = dur if (dur < wd_remaining) else wd_remaining
+
+            # Bigger than 0
+            dur = dur if (dur > 0) else -1
+
+            # If split preference, don't surpass 2.5h
+            # If suggesting second part of split remaining time 
+            # can't be bigger than 2.5h, so keeping previously calculated value
+            if ?preference_cdd == 1 and (dur > (2.25*60)):
+                dur = (2.25*60)
+            
+            # Already Driving sequence in split, do not follow with another
+            # THIS ALWAYS FORCES A BREAK
+            if ?preference_cdd == 1 and ?dt_activity > 0:
+                dur = -1
+
+            #-------------------------------------------------------------
+            # Find place to stop
+            #
+            # Get list of safe points on route at duration <= ?dur
+            #-------------------------------------------------------------
+
+            # Get safe points on route
+            # Order by distante to actual position ?coord_x ?coord_y
+
+            # While: Enough duration to arrive to safe point
+                # Get nearest safe point remaining on list
+
+                # Calculate duration to reach point ?rem_dur
+
+                # If ?rem_dur < 0, ?point = previous iteration point
+                #    && ?dur = ?dur - (?rem_dur of previous iteration)
+                # If no previous iteration point, ?dur = -1 (and force a break in the plan)
+
+            return dur
+        }
+        
+
+        ; If dt_dd > 4.5 -> DR o WR
+        ; Else B_T1 = 45m
+                ; #if ((?actual_timestamp + 45) > (24*60 + ?last_dr))
+        (calculate_duration_B ?d - Driver ?dt_dd ?dt_activity ?actual_timestamp ?last_dr ?last_wr ?last_bt ?preference_cdd - number) {
+            dur = -1
+
+            # If end of CDD -> DR o WR
+            if (?dt_dd >= (4.5*60)):
+                # A WR is needed
+                if ((?actual_timestamp + 11*60) > (6*24*60 + ?last_wr)):
+                    dur = 45 * 60
+                else:
+                    dur = 11 * 60
+            # If split wanted
+            elif ?preference_cdd == 1: 
+                # Check if we are already in the second part of split
+                if ?last_bt == 0:
+                    dur = 15 # B_T2
+                else:
+                    dur = 30 # B_T3
+            else:
+                dur = 45     # B_T1
+
+            return dur
+        }
+
+        (total-fuel-used ?d - Driver)
+        (actual-fuel ?d - Driver)
+		(fuel-consumption-rate ?d - Driver)
+		(fuel-limit ?d - Driver)
+        (speed ?d - Driver)
+
+        (max-load ?d - Driver)
+        (load ?d - Driver)
+        (weight ?b - box)
+
+        (distance ?c1 ?c2 - city)
+
+        (remaining_transport_dt)
+        (next_transport_dt)
+
+        ; Preferences
+        (preference_dd) ; 0: NDD - 1: EDD
+                            ; 2 EDD max per week. So it should be based on whether an EDD 
+                            ; let finish the transport earlier or the driver always uses the EDD availables
+        (preference_cdd) ; 0: Uninterrupted - 1: Split
     )
 
     ; =========================================================================
@@ -337,6 +453,25 @@
                         (legal-context yes)
                     )
                 )
+
+                (:inline
+                    (and
+                        (<= (edds_in_week) 2)
+                        (<= (dt_wd) (* 56.0 (hours_in_mins)))
+                    )
+                    ()
+                )
+
+                (WD ?d)
+            )
+        )
+
+        ; Zenotravel
+        ; Finished activity recognition with a WR, start with Zenotravel actions
+        (:method transport
+            :precondition (destination ?b - box ?c - city)
+            :tasks (
+                (DD ?d)
 
                 (:inline
                     (and
@@ -938,7 +1073,16 @@
                 (bind ?k (current_index_action));calcula el valor del  index ACTUAL
                 (not (index_action ?una_accion - TaskInstanceSymbol ?k));comprueba que no  hay alguna accion con index+1 asociado
             )
-            :tasks ()
+            :tasks (
+                ; Zenotravel
+                (:inline ()
+                    (and
+                        (not (modo_reconocer))
+                        (modo_generar)
+                    )
+                )
+                (A ?d)
+            )
         )
     )
 
@@ -1200,6 +1344,14 @@
                 (A ?d)
             )
         ) 
+
+        ; Start Zenotravel actions
+        (:method transport
+            :precondition (and (modo_generar) (destination ?b - box ?c - city))
+            :tasks (
+                (transport ?d)
+            )
+        )
         
         ;aquí viene porque se encontró un B con una duración mayor de 15 mins
         (:method PAUSE_CONSIDERED_BREAK
@@ -1328,6 +1480,43 @@
             )
 
         )
+
+        ; Zenotravel
+        (:method modo_generar
+            :precondition (modo_generar)
+            :tasks (
+                ;captura el contexto
+                (:inline
+                    (and 
+                        (legal-context ?legalctxt - context)
+                        (token-context ?tkctxt - context)
+                        (breakType-context ?drivctxt - context)
+                        (sequence-context ?seqctxt - context)
+                        (dayType-context ?dayctxt - context)
+                        (bind ?weekcount (week-counter))
+                        (bind ?daycount (day-counter))
+                    )
+                    ()
+                )
+
+                ; Get duration
+                (:inline
+                    (and
+                        (bind ?dt_dd (dt_dd))
+                        (bind ?dt_activity (dt_activity))
+                        (bind ?dt_wd (dt_wd))
+
+                        (bind ?preference_dd (preference_dd))
+                        (bind ?preference_cdd (preference_cdd))
+
+                        (bind ?dur (calculate_duration_D ?d ?dt_dd ?dt_activity ?dt_wd ?preference_dd ?preference_cdd))
+                    )
+                    ()
+                )
+
+                (D_suggested ?d ?dur ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt)
+            )
+        )
     )
 
     (:task O
@@ -1345,15 +1534,6 @@
 
     (:task B
         :parameters (?d - Driver ?dur - number)        
-        (:method fin_secuencia_entrada
-            :precondition (and
-                (bind ?k (current_index_action));calcula el valor del  index ACTUAL
-                (not (index_action ?una_accion - TaskInstanceSymbol ?k));comprueba que no  hay alguna accion con index+1 asociado
-            )
-            :tasks (
-                (:inline (bind ?dur 0) ())
-            )
-        )
         (:method modo_reconocer
             :precondition (modo_reconocer)
             :tasks (
@@ -1361,6 +1541,61 @@
 
                 ;incrementar el current index para reconocer la siguiente accion de la secuencia)
                 (:inline () (increase (current_index_action) 1))				
+            )
+        )
+
+        (:method modo_generar
+            :precondition (modo_generar)
+            :tasks (
+                ;captura el contexto
+                (:inline
+                    (and 
+                        (legal-context ?legalctxt - context)
+                        (token-context ?tkctxt - context)
+                        (breakType-context ?drivctxt - context)
+                        (sequence-context ?seqctxt - context)
+                        (dayType-context ?dayctxt - context)
+                        (bind ?weekcount (week-counter))
+                        (bind ?daycount (day-counter))
+                    )
+                    ()
+                )
+
+                ; Get duration
+                ; TODO: Fix. If activiy is 0 (a bug) and next break is a rest it can't continue
+                (:inline ()
+                    (when (next_break_is_rest) (assign (dt_dd) (* 4.5 (hours_in_mins))))
+                )
+                (:inline
+                    (and
+                        ; Get actual timestamp
+                        (bind ?actual_timestamp (actual-timestamp))
+
+                        ; Get duration
+                        (bind ?dt_dd (dt_dd))
+                        (bind ?dt_activity (dt_activity))
+                        (bind ?last_dr (last_dr))
+                        (bind ?last_wr (last_wr))
+
+                        (bind ?last_bt (bt_cdd_split1))
+                        (bind ?preference_cdd (preference_cdd))
+
+                        (bind ?dur (calculate_duration_B ?d ?dt_dd ?dt_activity ?actual_timestamp ?last_dr ?last_wr ?last_bt ?preference_cdd))
+                    )
+                    ()
+                )
+
+                (B_suggested ?d ?dur ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt)
+            )
+        )
+
+        (:method fin_secuencia_entrada
+            :precondition (and
+                (bind ?k (current_index_action));calcula el valor del  index ACTUAL
+                (not (index_action ?una_accion - TaskInstanceSymbol ?k));comprueba que no  hay alguna accion con index+1 asociado
+            )
+            :tasks (
+                (:inline (bind ?dur 0) ())
             )
         )
     )
@@ -1735,6 +1970,478 @@
     )
 
     ; =========================================================================
+    ; Zenotravel
+    ; =========================================================================
+
+    (:task transport
+        :parameters (?d - Driver)
+        (:method delivery
+            :precondition (and
+                (destination ?b - box ?c - city)
+                ; next-dt-wont-be-negative
+                (and
+                    (bind ?dt_dd (dt_dd))
+                    (bind ?dt_activity (dt_activity))
+                    (bind ?dt_wd (dt_wd))
+
+                    (bind ?preference_dd (preference_dd))
+                    (bind ?preference_cdd (preference_cdd))
+
+                    (bind ?dur (calculate_duration_D ?d ?dt_dd ?dt_activity ?dt_wd ?preference_dd ?preference_cdd))
+
+                    ; Check if positive
+                    (> ?dur 0)
+                )
+            )
+            :tasks (
+                (transport-box ?b ?c)
+                (transport ?d)
+            )
+        )
+
+        (:method finished
+            :precondition ()
+            :tasks ()
+        )
+    )
+
+    ; ---------------------------------------------------------------------------
+
+    (:task transport-box
+        :parameters (?b - box ?c_final - city)
+        (:method BoxAtDestination
+            :precondition (at ?b ?c_final)
+            :tasks (
+                (:inline () (not (destination ?b - box ?c - city)))
+            )
+        )
+
+        (:method UnloadBox
+            :precondition (and
+                (at ?d - Driver ?c_final)
+                (in ?b ?d)
+            )
+            :tasks (
+                (unload ?d ?c_final)
+            )
+        )
+        
+        (:method BoxAndDriverAtCity ; If package and driver in the same city
+            :precondition (and  
+                (at ?b - box ?c1 - city)
+                (at ?d - Driver ?c1 - city)
+            )
+                
+            :tasks (
+                (load ?d ?c1 ?c_final)
+                (drive ?d ?c1 ?c_final)
+            )
+        )
+        
+        (:method ContinuingSplitDriving
+            :precondition (and
+                (> (remaining_transport_dt) 0)
+                (in ?b - box ?d - Driver)
+                (at ?d - Driver ?c1 - city)
+            )                
+            :tasks (
+                (drive ?d ?c1 ?c_final)
+            )
+        )
+
+        (:method BoxAlreadyLoaded ; Package already loaded in the truck
+            :precondition (and
+                (at ?d - Driver ?c1 - city)
+                (in ?b ?d)
+                (destination ?b ?c_final)
+            )
+            :tasks (
+                (load ?d ?c1 ?c_final)
+                (drive ?d ?c1 ?c_final)
+            )
+        )
+
+        (:method DriverInOtherCity ; If driver in another city, bring him back
+            :precondition (and 
+                (at ?b - box ?c1 - city)
+                (at ?d - Driver ?c2 - city)
+                (not (= ?c1 ?c2))
+            )
+            :tasks (
+                (load ?d ?c2 ?c1)   ; Bring all packages from other city        
+                (drive ?d ?c2 ?c1)
+                (load ?d ?c1 ?c_final)
+            )
+        )
+    )
+
+
+    ; ---------------------------------------------------------------------------
+
+    ; There should be an option to optimize total-fuel-used and an additional
+    ; method to check if all packages should be loaded
+    (:task load ; Load all packages in actual city
+        :parameters (?d - Driver ?c1 - city ?c2 - city)
+        ; Priority to the ones with same destination
+        (:method same_destination
+            :precondition (and
+                (at ?b - box ?c1)
+                (at ?d ?c1)
+                (destination ?b ?c2)
+                (>= (max-load ?d) (+ (load ?d) (weight ?b)))
+            )
+            :tasks (
+                (board ?b ?d ?c1)
+                (load ?d ?c1 ?c2)
+            )
+        )
+
+        ; If enough weight, load the rest
+        (:method any
+            :precondition (and
+                (at ?b - box ?c1)
+                (at ?d ?c1)
+                
+                ; Must have a destination, otherwise it has been already delivered
+                (destination ?b - box ?c3 - city)
+                (not (= ?c2 ?c3))
+                (not (= ?c1 ?c3))
+
+                (>= (max-load ?d) (+ (load ?d) (weight ?b)))
+            )
+            :tasks (
+                (board ?b ?d ?c1)
+                (load ?d ?c1 ?c2)
+            )
+        )
+
+        (:method end
+            :precondition ()
+            :tasks ()
+        )
+    )
+
+    (:task unload ; Unload all packages whose destination is actual city
+        :parameters (?d - Driver ?c - city)
+        (:method unload
+            :precondition (and
+                (in ?b - box ?d)
+                (at ?d ?c)
+                (destination ?b - box ?c)
+            )
+            :tasks (
+                (debark ?b ?d ?c)
+                (unload ?d ?c)
+            )
+        )
+
+        (:method end
+            :precondition ()
+            :tasks ()
+        )
+    )
+
+    ; ---------------------------------------------------------------------------
+
+    (:task board
+        :parameters (?b - box ?d - Driver ?c - city)
+        (:method normal
+            :precondition (and
+                (at ?b ?c)
+                (at ?d ?c)
+            )
+            :tasks (
+                ;captura el contexto
+                (:inline
+                    (and 
+                        (legal-context ?legalctxt - context)
+                        (token-context ?tkctxt - context)
+                        (breakType-context ?drivctxt - context)
+                        (sequence-context ?seqctxt - context)
+                        (dayType-context ?dayctxt - context)
+                        (bind ?weekcount (week-counter))
+                        (bind ?daycount (day-counter))
+                    )
+                    ()
+                )
+
+                (load_p ?d ?b ?c ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt)
+            )
+        )
+
+        (:method weight_surpassed   ; Drop a package here to return later
+            :precondition (and
+                (at ?b ?c)
+                (at ?d ?c)
+                
+                ; The box must be inside the trunk with another destination
+                (in ?b2 - box ?d)
+                (destination ?b2 - box ?c2 - city)
+                (not (= ?b ?b2))
+                (not (= ?c ?c2))
+            )
+            :tasks (
+                (debark ?b2 ?d ?c)
+
+                ; Restore destination                
+                (:inline () (destination ?b2 ?c2))
+
+                (board ?b ?d ?c)
+            )
+        )
+    )
+
+    (:task debark
+        :parameters (?b - box ?d - Driver ?c - city)
+        (:method unique
+            :precondition (and
+                (in ?b ?d)
+                (at ?d ?c)
+            )
+            :tasks (
+                ;captura el contexto
+                (:inline
+                    (and 
+                        (legal-context ?legalctxt - context)
+                        (token-context ?tkctxt - context)
+                        (breakType-context ?drivctxt - context)
+                        (sequence-context ?seqctxt - context)
+                        (dayType-context ?dayctxt - context)
+                        (bind ?weekcount (week-counter))
+                        (bind ?daycount (day-counter))
+                    )
+                    ()
+                )
+
+                (unload_p ?d ?b ?c ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt)
+            )
+        )
+    )
+
+    ; -------------------------------------------------------------------------
+
+    (:task drive
+        :parameters (?d - Driver ?c1 - city ?c2 - city)
+        (:method no-refuel ; Al estar primero priorizamos el volar deprisa
+            :precondition ()
+            :tasks (        
+                ;captura el contexto
+                (:inline
+                    (and
+                        (legal-context ?legalctxt - context)
+                        (token-context ?tkctxt - context)
+                        (breakType-context ?drivctxt - context)
+                        (sequence-context ?seqctxt - context)
+                        (dayType-context ?dayctxt - context)
+                        (bind ?weekcount (week-counter))
+                        (bind ?daycount (day-counter))
+                    )
+                    ()
+                )
+
+                (drive-sequence ?d ?c1 ?c2)
+
+                (:inline
+                    (>= (actual-fuel ?d) 0)
+                    ()
+                )
+            )
+        )
+
+        (:method refuel ; Probamos repostando
+            :precondition ()
+            :tasks (
+                ;captura el contexto
+                (:inline
+                    (and 
+                        (legal-context ?legalctxt - context)
+                        (token-context ?tkctxt - context)
+                        (breakType-context ?drivctxt - context)
+                        (sequence-context ?seqctxt - context)
+                        (dayType-context ?dayctxt - context)
+                        (bind ?weekcount (week-counter))
+                        (bind ?daycount (day-counter))
+                    )
+                    ()
+                )
+
+                (refuel ?d ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt)
+                (drive-sequence ?d ?c1 ?c2)
+
+                (:inline
+                    (>= (actual-fuel ?d) 0)
+                    ()
+                )
+            )
+        )
+
+        ; Needs to refuel mid-way (more than one time in total)
+        (:method refuel-mid-way
+            :precondition ()
+            :tasks (
+                (:inline
+                    (and 
+                        (legal-context ?legalctxt - context)
+                        (token-context ?tkctxt - context)
+                        (breakType-context ?drivctxt - context)
+                        (sequence-context ?seqctxt - context)
+                        (dayType-context ?dayctxt - context)
+                        (bind ?weekcount (week-counter))
+                        (bind ?daycount (day-counter))
+                    )
+                    ()
+                )
+
+                (refuel-on-the-way ?d ?c1 ?c2 ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt)
+                (drive-sequence ?d ?c1 ?c2)
+
+                (:inline
+                    (>= (actual-fuel ?d) 0)
+                    ()
+                )
+            )
+        )
+    )
+
+    ; ---------------------------------------------------------------------------
+
+    (:task drive-sequence
+        :parameters (?d - Driver ?c1 ?c2 - city)        
+        (:method break2
+            :precondition (> (remaining_transport_dt) 0)
+            :tasks (
+                ; Get duration before break
+                (:inline
+                    (and
+                        (bind ?dt_dd (dt_dd))
+                        (bind ?dt_activity (dt_activity))
+                        (bind ?dt_wd (dt_wd))
+
+                        (bind ?preference_dd (preference_dd))
+                        (bind ?preference_cdd (preference_cdd))
+
+                        (bind ?dur (calculate_duration_D ?d ?dt_dd ?dt_activity ?dt_wd ?preference_dd ?preference_cdd))
+                        (> ?dur 0)
+                    )
+                    ; See if enough time to complete transport
+                    (and
+                        (assign (next_transport_dt) ?dur)
+                        (when (< (remaining_transport_dt) ?dur) (assign (next_transport_dt) (remaining_transport_dt)))
+                    )
+                )
+
+                ; If duration is less than full DD (4.5), indicate the correct value
+                ; dur2 will be <= dur 
+                (:inline
+                    (bind ?dur2 (next_transport_dt))
+                    (and
+                        (decrease (remaining_transport_dt) ?dur2)
+                    )
+                )
+
+                ;captura el contexto
+                (:inline
+                    (and 
+                        (legal-context ?legalctxt - context)
+                        (token-context ?tkctxt - context)
+                        (breakType-context ?drivctxt - context)
+                        (sequence-context ?seqctxt - context)
+                        (dayType-context ?dayctxt - context)
+                        (bind ?weekcount (week-counter))
+                        (bind ?daycount (day-counter))
+                    )
+                    ()
+                )
+
+                (drive_p_fixed_duration ?d ?c1 ?c2 ?dur2 ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt)
+            )
+        )
+
+        (:method no_break
+            :precondition ()
+            :tasks (
+                ; Get max duration before break
+                (:inline
+                    (and
+                        (bind ?dt_dd (dt_dd))
+                        (bind ?dt_activity (dt_activity))
+                        (bind ?dt_wd (dt_wd))
+
+                        (bind ?preference_dd (preference_dd))
+                        (bind ?preference_cdd (preference_cdd))
+
+                        (bind ?dur (calculate_duration_D ?d ?dt_dd ?dt_activity ?dt_wd ?preference_dd ?preference_cdd))
+                        (> ?dur 0)
+                        
+                        ; See if enough time to complete transport
+                        (>= ?dur (* (hours_in_mins) (/ (distance ?c1 ?c2) (speed ?d))))
+                    )
+                    ()
+                )
+
+                ;captura el contexto
+                (:inline
+                    (and 
+                        (legal-context ?legalctxt - context)
+                        (token-context ?tkctxt - context)
+                        (breakType-context ?drivctxt - context)
+                        (sequence-context ?seqctxt - context)
+                        (dayType-context ?dayctxt - context)
+                        (bind ?weekcount (week-counter))
+                        (bind ?daycount (day-counter))
+                    )
+                    ()
+                )
+
+                (drive_p ?d ?c1 ?c2 ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt)
+            )
+        )
+
+        (:method break
+            :precondition ()
+            :tasks (
+                ; Get duration before break
+                (:inline
+                    (and
+                        (bind ?dt_dd (dt_dd))
+                        (bind ?dt_activity (dt_activity))
+                        (bind ?dt_wd (dt_wd))
+
+                        (bind ?preference_dd (preference_dd))
+                        (bind ?preference_cdd (preference_cdd))
+
+                        (bind ?dur (calculate_duration_D ?d ?dt_dd ?dt_activity ?dt_wd ?preference_dd ?preference_cdd))
+                        (> ?dur 0)
+                    )
+                    (and
+                        ; Get total duration
+                        (when (<= (remaining_transport_dt) 0)
+                            (assign (remaining_transport_dt) (* (hours_in_mins) (/ (distance ?c1 ?c2) (speed ?d))))
+                        )
+                        (decrease (remaining_transport_dt) ?dur)
+                    )
+                )
+
+                ;captura el contexto
+                (:inline
+                    (and 
+                        (legal-context ?legalctxt - context)
+                        (token-context ?tkctxt - context)
+                        (breakType-context ?drivctxt - context)
+                        (sequence-context ?seqctxt - context)
+                        (dayType-context ?dayctxt - context)
+                        (bind ?weekcount (week-counter))
+                        (bind ?daycount (day-counter))
+                    )
+                    ()
+                )
+
+                (drive_p_fixed_duration ?d ?c1 ?c2 ?dur ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt)
+            )
+        )
+    )
+
+    ; =========================================================================
     ; Actions
     ; =========================================================================
 
@@ -1777,6 +2484,133 @@
         ; :meta ((:tag prettyprint "?d,?start,?end,?duration,Idle,?weekcount,?daycount,?dayctxt	?seqctxt,?drivctxt,?tkctxt,?legalctxt"))
         :duration (= ?duration ?dur)
         :condition()
+        :effect (increase (actual-timestamp) ?dur)
+    )
+
+    ; =========================================================================
+    ; Zenotravel
+    ; =========================================================================
+
+    ; ---------------------------------------------------------------------------
+
+    (:durative-action load_p
+        :parameters (?d - Driver ?b - box ?c - city ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt  - context)
+        ; :meta ((:tag prettyprint "?d	?start	?end	?duration	Sug-Load	?weekcount	?daycount	?dayctxt	?seqctxt	?drivctxt	A	?legalctxt	?b"))
+        :duration (= ?duration 3)
+        :condition ()
+        :effect (and  
+            (not (at ?b ?c))
+            (in ?b ?d)
+            (increase (load ?d) (weight ?b))
+
+            (increase (actual-timestamp) 3)
+        )
+    )
+    
+    (:durative-action unload_p
+        :parameters (?d - Driver ?b - box ?c - city ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt  - context)
+        ; :meta ((:tag prettyprint "?d	?start	?end	?duration	Sug-Unload	?weekcount	?daycount	?dayctxt	?seqctxt	?drivctxt	A	?legalctxt	?b"))
+        :duration (= ?duration 3)
+        :condition ()
+        ; :condition (:print "- Package delivered\n")
+        :effect (and  
+            (at ?b ?c)
+            (not (in ?b ?d))
+            (not (destination ?b ?c))
+            (decrease (load ?d) (weight ?b))
+
+            (increase (actual-timestamp) 3)
+        )
+    )
+
+    (:durative-action drive_p
+        :parameters (?d - Driver ?c1 ?c2 - city ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt  - context)
+        ; :meta ((:tag prettyprint "?d	?start	?end	?duration	Sug-Driving	?weekcount	?daycount	?dayctxt	?seqctxt	?drivctxt	A	?legalctxt	?c1-?c2"))
+        :duration (= ?duration (* (hours_in_mins) (/ (distance ?c1 ?c2) (speed ?d))))
+        :condition ()
+        :effect (and 
+            (not (at ?d ?c1))
+            (at ?d ?c2)
+            (increase (total-fuel-used ?d)
+                        (* (distance ?c1 ?c2) (fuel-consumption-rate ?d)))
+            (decrease (actual-fuel ?d)
+                        (* (distance ?c1 ?c2) (fuel-consumption-rate ?d)))
+
+            (increase (dt_activity) (* (hours_in_mins) (/ (distance ?c1 ?c2) (speed ?d))))
+
+            (increase (actual-timestamp) (* (hours_in_mins) (/ (distance ?c1 ?c2) (speed ?d))))
+        )
+    )
+
+    (:durative-action drive_p_fixed_duration
+        :parameters (?d - Driver ?c1 ?c2 - city ?dur - number ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt  - context)
+        ; :meta ((:tag prettyprint "?d	?start	?end	?duration	Sug-Driving	?weekcount	?daycount	?dayctxt	?seqctxt	?drivctxt	A	?legalctxt	?c1-?c2"))
+        :duration (= ?duration ?dur)
+        :condition ()
+        :effect (and
+            (when (<= (remaining_transport_dt) 0)
+                (and
+                    (not (at ?d ?c1))
+                    (at ?d ?c2)
+                )
+            )
+
+            (increase (dt_activity) ?dur)
+            (assign (current_dt) ?dur)
+
+            (increase (total-fuel-used ?d) 
+                (* (/ (* (fuel-consumption-rate ?d) (speed ?d)) 60) ?dur))
+            (decrease (actual-fuel ?d)
+                (* (/ (* (fuel-consumption-rate ?d) (speed ?d)) 60) ?dur))
+
+            (increase (actual-timestamp) ?dur)
+        )
+    )
+
+    (:durative-action refuel
+        :parameters (?d - Driver ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt  - context)
+        ; :meta ((:tag prettyprint "?d	?start	?end	?duration	Sug-Refuel	?weekcount	?daycount	?dayctxt	?seqctxt	?drivctxt	A	?legalctxt"))
+        :duration (= ?duration 10)
+        :condition ()
+        :effect (and
+            (assign (actual-fuel ?d) (fuel-limit ?d))
+            (increase (actual-timestamp) 10)
+        )
+    )
+
+    (:durative-action refuel-on-the-way
+        :parameters (?d - Driver ?c1 ?c2 - city ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt  - context)
+        ; :meta ((:tag prettyprint "?d	?start	?end	?duration	Sug-Refuelx?times	?weekcount	?daycount	?dayctxt	?seqctxt	?drivctxt	A	?legalctxt"))
+        :duration (= ?duration 10)
+        ; :condition (bind ?times (/ (* (distance ?c1 ?c2) (fuel-consumption-rate ?d)) (fuel-limit ?d)))
+        :condition ()
+        :effect (and
+            ; (assign (actual-fuel ?d) (* (fuel-limit ?d) ?times))
+            (assign (actual-fuel ?d) (* (fuel-limit ?d) (/ (* (distance ?c1 ?c2) (fuel-consumption-rate ?d)) (fuel-limit ?d))))
+            (increase (actual-timestamp) 10)
+        )
+    )
+
+    ; -------------------------------------------------------------------------
+    ; Generating mode
+    ; -------------------------------------------------------------------------
+
+    ; Could be OtherWork too
+    (:durative-action D_suggested
+        :parameters (?d - Driver ?dur - number ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt  - context)
+        ; :meta ((:tag prettyprint "?d	?start	?end	?duration	Sug-Driving	?weekcount	?daycount	?dayctxt	?seqctxt	?drivctxt	?tkctxt	?legalctxt"))
+        :duration (= ?duration ?dur)
+        :condition ()
+        :effect (increase (actual-timestamp) ?dur)
+    )
+
+    ; -------------------------------------------------------------------------
+
+    (:durative-action B_suggested
+        :parameters (?d - Driver ?dur - number ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt  - context)
+        ; :meta ((:tag prettyprint "?d	?start	?end	?duration	Sug-Break	?weekcount	?daycount	?dayctxt	?seqctxt	?drivctxt	?tkctxt	?legalctxt"))
+        :duration (= ?duration ?dur)
+        :condition ()
         :effect (increase (actual-timestamp) ?dur)
     )
 )
