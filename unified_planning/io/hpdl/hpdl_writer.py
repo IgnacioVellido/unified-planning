@@ -307,6 +307,21 @@ class ConverterToPDDLString(walkers.DagWalker):
         # Content is fluent
         if content.is_fluent_exp():
             fluent = content.fluent()
+
+            params = []
+            for param in fluent.signature:
+                if param.type.is_user_type():
+                    params.append(
+                        f" {self.get_mangled_name(param)} {self.get_mangled_name(param.type)}"
+                    )
+                elif param.type.is_int_type() or param.type.is_real_type():
+                    params.append(
+                        f" {self.get_mangled_name(param)} - number"
+                    )
+                else:
+                    raise UPTypeError("HPDL supports only user or number type parameters")
+
+            return f"(bind ?{bind.parameter} ({self.get_mangled_name(fluent)} {''.join(params)}))"
         elif content.is_int_constant():
             fluent = content.int_constant_value()
             return f"(bind ?{bind.parameter} {fluent})"
@@ -315,9 +330,9 @@ class ConverterToPDDLString(walkers.DagWalker):
             return f"(bind ?{bind.parameter} {fluent})"
         elif content.is_parameter_exp():
             fluent = content.parameter()
+            return f"(bind ?{bind.parameter} ({self.get_mangled_name(fluent)}))"
         else:
             raise ValueError("Expression used in bind not supported")
-        return f"(bind ?{bind.parameter} ({self.get_mangled_name(fluent)}))"
 
 
 class HPDLWriter:
@@ -484,7 +499,7 @@ class HPDLWriter:
                             f" {self._get_mangled_name(param)} {self._get_mangled_name(param.type)}"
                         )
                         i += 1
-                    elif param.type.is_int_type():
+                    elif param.type.is_int_type() or param.type.is_real_type():
                         params.append(
                             f" {self._get_mangled_name(param)} - number"
                         )
@@ -499,6 +514,11 @@ class HPDLWriter:
                     if param.type.is_user_type():
                         params.append(
                             f" {self._get_mangled_name(param)} {self._get_mangled_name(param.type)}"
+                        )
+                        i += 1
+                    elif param.type.is_int_type() or param.type.is_real_type():
+                        params.append(
+                            f" {self._get_mangled_name(param)} - number"
                         )
                         i += 1
                     else:
@@ -733,7 +753,14 @@ class HPDLWriter:
 
                 # Because mangled_name, getting object in params list
                 if not found:
-                    res += f"{self._get_mangled_name(params[p.name])} {self._get_mangled_name(p.type)} "
+                    if p.type.is_user_type():
+                        res += f"{self._get_mangled_name(params[p.name])} {self._get_mangled_name(p.type)} "
+                    elif p.type.is_int_type() or p.type.is_real_type():
+                        res += f"{self._get_mangled_name(params[p.name])} - number "
+                    else:
+                        print(p.name, p.type)
+                        raise UPTypeError("HPDL supports only user or number type parameters")
+                    
             return res + ")"
 
     # TODO: Put proper indentation
@@ -833,12 +860,14 @@ class HPDLWriter:
                         out.write("\n   ")
                         if interval.lower == interval.upper:
                             if interval.lower.is_from_start():
-                                out.write(f"(at start {self.converter.convert(c)})")
+                                # (at start) implicit in HPDL conditions
+                                out.write(f"{self.converter.convert(c)}")
                             else:
                                 out.write(f"(at end {self.converter.convert(c)})")
                         else:
                             if not interval.is_left_open():
-                                out.write(f"(at start {self.converter.convert(c)})")
+                                # (at start) implicit in HPDL conditions
+                                out.write(f"{self.converter.convert(c)}")
                             out.write(f"(over all {self.converter.convert(c)})")
                             if not interval.is_right_open():
                                 out.write(f"(at end {self.converter.convert(c)})")
@@ -852,8 +881,7 @@ class HPDLWriter:
                             out.write("\n   ")
                             if t.is_from_start():
                                 out.write(f"(at start ")
-                            else:
-                                out.write(f"(at end ")
+                                # (at end) implicit in HPDL effects
                             if e.is_conditional():
                                 out.write(
                                     f"(when {self.converter.convert(e.condition)}"
@@ -876,7 +904,9 @@ class HPDLWriter:
                                 )
                             if e.is_conditional():
                                 out.write(f")")
-                            out.write(")")
+                            if t.is_from_start():
+                                # (at end) implicit in HPDL effects
+                                out.write(")")
                     if a in costs:
                         out.write(
                             f" (at end (increase (total-cost) {self.converter.convert(costs[a])}))"
