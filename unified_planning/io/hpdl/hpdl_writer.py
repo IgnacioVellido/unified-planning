@@ -964,12 +964,12 @@ class HPDLWriter:
                 # FIXME: (at) does not work at the moment in SIADEX
                 # out.write(f"\n  (at {t.delay} {self.converter.convert(e.fluent)})")
                 out.write(
-                    f"\n  (between {t[0]} and {t[1]} {self.converter.convert(fluent)})"
+                    f"\n  (between {int(t[0])} and {int(t[1])} {self.converter.convert(fluent)})"
                 )
             elif t[2].is_false():
                 # out.write(f"\n  (at {t.delay} (not {self.converter.convert(e.fluent)}))")
                 out.write(
-                    f"\n  (between {t[0]} and {t[1]} (not {self.converter.convert(fluent)}))"
+                    f"\n  (between {int(t[0])} and {int(t[1])} (not {self.converter.convert(fluent)}))"
                 )
             else:
                 raise UPProblemDefinitionError(
