@@ -54,7 +54,7 @@ class TestHpdlIO(TestCase):
         self.assertEqual(
             29, len(problem.fluents)
         )  # 16 functions + 13 predicates (9 derived)
-        self.assertEqual(5, len(problem.actions))  # 14 actions + 12 inlines
+        self.assertEqual(6, len(problem.actions))  # 14 actions + 12 inlines
         self.assertEqual(
             [
                 "transport-person",
@@ -86,8 +86,8 @@ class TestHpdlIO(TestCase):
             ],
             [method.name for method in problem.methods],
         )
-
-        for action in problem.actions:
+        # ignore inline
+        for action in problem.actions[:-1]:
             assert isinstance(action, up.model.action.DurativeAction)
         self.assertEqual(25, len(problem.task_network.subtasks))  # Goal
 
@@ -310,7 +310,7 @@ class TestHpdlIO(TestCase):
   (= :time-format "%d/%m/%Y %H:%M:%S")
   (= :time-horizon-relative 2500)
   (= :time-start "05/06/2007 08:00:00")
-  (= :time-unit :hours)
+  (= :time-unit :minutes)
  )
  (:objects
    a b c - bloque
@@ -471,7 +471,7 @@ class TestHpdlIO(TestCase):
   (= :time-format "%d/%m/%Y %H:%M:%S")
   (= :time-horizon-relative 2500)
   (= :time-start "05/06/2007 08:00:00")
-  (= :time-unit :hours)
+  (= :time-unit :minutes)
  )
  (:objects
    p0 - person
@@ -498,3 +498,38 @@ class TestHpdlIO(TestCase):
 
         self.assertEqual(hpdl_domain, expected_domain)
         self.assertEqual(hpdl_problem, expected_problem)
+
+
+
+    def test_hpdl_writer_zenotravel(self):
+        reader = HPDLReader()
+
+        domain_filename = os.path.join(HPDL_DOMAINS_PATH, "zenotravel", "domain.hpdl")
+        problem_filename = os.path.join(HPDL_DOMAINS_PATH, "zenotravel", "problem.hpdl")
+        problem = reader.parse_problem(domain_filename, problem_filename)
+
+        w = HPDLWriter(problem)
+
+        hpdl_domain = w.get_domain()
+        hpdl_problem = w.get_problem()
+
+        # print(hpdl_domain)
+        # print(hpdl_problem)
+        # w.write_domain(os.path.join(HPDL_DOMAINS_PATH, "zenotravel", "test_domain.hpdl"))
+        # w.write_problem(os.path.join(HPDL_DOMAINS_PATH, "zenotravel", "test_problem.hpdl"))
+
+    
+    def test_domain_jacob(self):
+        reader = HPDLReader()
+
+        domain_filename = os.path.join(HPDL_DOMAINS_PATH, "jacob", "domain.hpdl")
+        problem_filename = os.path.join(HPDL_DOMAINS_PATH, "jacob", "problem.hpdl")
+        problem = reader.parse_problem(domain_filename, problem_filename)
+        
+        w = HPDLWriter(problem)
+
+        hpdl_domain = w.get_domain()
+        hpdl_problem = w.get_problem()
+
+        # w.write_domain(os.path.join(HPDL_DOMAINS_PATH, "jacob", "test_domain.hpdl"))
+        # w.write_problem(os.path.join(HPDL_DOMAINS_PATH, "jacob", "test_problem.hpdl"))

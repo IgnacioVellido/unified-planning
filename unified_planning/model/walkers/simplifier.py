@@ -18,6 +18,7 @@ from collections import OrderedDict
 from typing import List, Optional, Set, Union
 import unified_planning as up
 import unified_planning.environment
+from unified_planning.model.bind import Bind
 import unified_planning.model.walkers as walkers
 from unified_planning.model.fnode import FNode
 import unified_planning.model.operators as op
@@ -346,6 +347,11 @@ class Simplifier(walkers.dag.DagWalker):
         else:
             return self.manager.Div(left, right)
         return self._number_to_fnode(value)
+    
+    
+    @walkers.handles(op.OperatorKind.BIND)
+    def walk_bind(self, expression: Bind, args):
+        return expression
 
     @walkers.handles(op.CONSTANTS)
     @walkers.handles(

@@ -15,6 +15,7 @@
 
 
 from unified_planning.model.action import Action, InstantaneousAction, DurativeAction
+from unified_planning.model.bind import Bind
 from unified_planning.model.effect import Effect, SimulatedEffect, EffectKind
 from unified_planning.model.expression import (
     BoolExpression,
@@ -64,6 +65,7 @@ __all__ = [
     "Action",
     "InstantaneousAction",
     "DurativeAction",
+    "Bind",
     "Effect",
     "SimulatedEffect",
     "EffectKind",
