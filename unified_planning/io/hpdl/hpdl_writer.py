@@ -191,7 +191,7 @@ class ConverterToPDDLString(walkers.DagWalker):
         
         for v in expression.variables():
             pos = args[0].find(f"?{v.name}")
-            args[0] = f"{args[0][:pos + 1 + len(v.name)]} {self.get_mangled_name(v.type)} {args[0][pos + len(v.name) + 2:]}"
+            args[0] = f"{args[0][:pos + 1 + len(v.name)]} {self.get_mangled_name(v.type)} {args[0][pos + 1 + len(v.name) :]}"
             
         return f'(forall ({" ".join(vars_string_list)})\n {args[0]})'
 
