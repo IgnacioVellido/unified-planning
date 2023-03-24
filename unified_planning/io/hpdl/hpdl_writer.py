@@ -9,25 +9,17 @@ from warnings import warn
 
 import unified_planning as up
 import unified_planning.environment
-from unified_planning.model.bind import Bind
 import unified_planning.model.walkers as walkers
-from unified_planning.exceptions import (
-    UPException,
-    UPProblemDefinitionError,
-    UPTypeError,
-)
-from unified_planning.model import (
-    DurativeAction,
-    Fluent,
-    FNode,
-    InstantaneousAction,
-    Object,
-    Parameter,
-    Problem,
-)
-from unified_planning.model.htn import HierarchicalProblem, Method, Task, TaskNetwork
+from unified_planning.exceptions import (UPException, UPProblemDefinitionError,
+                                         UPTypeError)
+from unified_planning.model import (DurativeAction, Fluent, FNode,
+                                    InstantaneousAction, Object, Parameter,
+                                    Problem)
+from unified_planning.model.bind import Bind
+from unified_planning.model.htn import (HierarchicalProblem, Method, Task,
+                                        TaskNetwork)
 from unified_planning.model.operators import OperatorKind
-from unified_planning.model.types import _UserType, _IntType, _RealType
+from unified_planning.model.types import _IntType, _RealType, _UserType
 
 HPDL_KEYWORDS = {
     "define",
@@ -187,7 +179,7 @@ class ConverterToPDDLString(walkers.DagWalker):
         vars_string_list = [
             f"{self.get_mangled_name(v)} {self.get_mangled_name(v.type)}"
             for v in expression.variables()
-        ] # Get_mangle returns "-"
+        ]  # Get_mangle returns "-"
         return f'(exists ({" ".join(vars_string_list)})\n {args[0]})'
 
     def walk_forall(self, expression, args):
@@ -195,7 +187,12 @@ class ConverterToPDDLString(walkers.DagWalker):
         vars_string_list = [
             f"{self.get_mangled_name(v)} {self.get_mangled_name(v.type)}"
             for v in expression.variables()
-        ] # Get_mangle returns "-"
+        ]  # Get_mangle returns "-"
+        
+        for v in expression.variables():
+            pos = args[0].find(f"?{v.name}")
+            args[0] = f"{args[0][:pos + 1 + len(v.name)]} {self.get_mangled_name(v.type)} {args[0][pos + len(v.name) + 2:]}"
+            
         return f'(forall ({" ".join(vars_string_list)})\n {args[0]})'
 
     def walk_variable_exp(self, expression, args):
@@ -315,11 +312,11 @@ class ConverterToPDDLString(walkers.DagWalker):
                         f" {self.get_mangled_name(param)} {self.get_mangled_name(param.type)}"
                     )
                 elif param.type.is_int_type() or param.type.is_real_type():
-                    params.append(
-                        f" {self.get_mangled_name(param)} - number"
-                    )
+                    params.append(f" {self.get_mangled_name(param)} - number")
                 else:
-                    raise UPTypeError("HPDL supports only user or number type parameters")
+                    raise UPTypeError(
+                        "HPDL supports only user or number type parameters"
+                    )
 
             return f"(bind ?{bind.parameter} ({self.get_mangled_name(fluent)} {''.join(params)}))"
         elif content.is_int_constant():
@@ -457,7 +454,7 @@ class HPDLWriter:
             if not (len(stack) == 1 and stack[0].name == "object"):
                 out.write(
                     f'    {" ".join(self._get_mangled_name(t)[2:] for t in stack )} - object\n'
-                ) # Ignoring slash
+                )  # Ignoring slash
 
             while stack:
                 current_type = stack.pop()
@@ -468,14 +465,14 @@ class HPDLWriter:
                     stack.extend(direct_sons)
                     out.write(
                         f'    {" ".join([self._get_mangled_name(t)[2:] for t in direct_sons])} {self._get_mangled_name(current_type)}\n'
-                    ) # Ignoring slash
+                    )  # Ignoring slash
             out.write(" )\n")
         else:
             out.write(
                 f' (:types {" ".join([self._get_mangled_name(t)[2:] for t in self.problem.user_types])})\n'
                 if len(self.problem.user_types) > 0
                 else ""
-            ) # Ignoring slash
+            )  # Ignoring slash
 
     def _write_constants(self, out: IO[str]):
         out.write(" (:constants")
@@ -500,12 +497,12 @@ class HPDLWriter:
                         )
                         i += 1
                     elif param.type.is_int_type() or param.type.is_real_type():
-                        params.append(
-                            f" {self._get_mangled_name(param)} - number"
-                        )
+                        params.append(f" {self._get_mangled_name(param)} - number")
                         i += 1
                     else:
-                        raise UPTypeError("HPDL supports only user or number type parameters")
+                        raise UPTypeError(
+                            "HPDL supports only user or number type parameters"
+                        )
                 predicates.append(f'({self._get_mangled_name(f)}{"".join(params)})')
             elif f.type.is_int_type() or f.type.is_real_type() or f.type.is_func_type():
                 params = []
@@ -517,9 +514,7 @@ class HPDLWriter:
                         )
                         i += 1
                     elif param.type.is_int_type() or param.type.is_real_type():
-                        params.append(
-                            f" {self._get_mangled_name(param)} - number"
-                        )
+                        params.append(f" {self._get_mangled_name(param)} - number")
                         i += 1
                     else:
                         raise UPTypeError("HPDL supports only user type parameters")
@@ -546,9 +541,7 @@ class HPDLWriter:
                     f"{self._get_mangled_name(ap)} {self._get_mangled_name(ap.type)} "
                 )
             elif ap.type.is_int_type():
-                out.write(
-                    f" {self._get_mangled_name(ap)} - number "
-                )
+                out.write(f" {self._get_mangled_name(ap)} - number ")
             else:
                 raise UPTypeError("HPDL supports only user or number type parameters")
 
@@ -758,8 +751,10 @@ class HPDLWriter:
                     elif p.type.is_int_type() or p.type.is_real_type():
                         res += f"{self._get_mangled_name(params[p.name])} - number "
                     else:
-                        raise UPTypeError("HPDL supports only user or number type parameters")
-                    
+                        raise UPTypeError(
+                            "HPDL supports only user or number type parameters"
+                        )
+
             return res + ")"
 
     # TODO: Put proper indentation
@@ -850,11 +845,14 @@ class HPDLWriter:
                     else:
                         out.write(f"(<= ?duration {self.converter.convert(r)})")
                     out.write(")")
-                
+
                 # Write conditions
                 out.write(f"\n  :condition (")
+                if len(a.conditions.items()) > 0:
+                    out.write(f" and ")
+
                 for interval, cl in a.conditions.items():
-                    out.write(f"and") # condition (and) is always False in HPDL
+                    out.write(f"\n ( and")  # condition (and) is always False in HPDL
                     for c in cl:
                         out.write("\n   ")
                         if interval.lower == interval.upper:
@@ -870,6 +868,7 @@ class HPDLWriter:
                             out.write(f"(over all {self.converter.convert(c)})")
                             if not interval.is_right_open():
                                 out.write(f"(at end {self.converter.convert(c)})")
+                    out.write(f")")
                 out.write("\n  )")
 
                 # Write effects
@@ -1219,7 +1218,7 @@ def _get_pddl_name(
     ]
 ) -> str:
     """This function returns a pddl name for the chosen item"""
-    if isinstance(item, _RealType) or isinstance(item, _IntType): # HPDL number type
+    if isinstance(item, _RealType) or isinstance(item, _IntType):  # HPDL number type
         # return "number"
         return ""
 
@@ -1239,7 +1238,7 @@ def _get_pddl_name(
         name = f"{name}_"
     if isinstance(item, up.model.Parameter) or isinstance(item, up.model.Variable):
         name = f"?{name}"
-    elif isinstance(item, up.model.Type): # Better to write the slash here
+    elif isinstance(item, up.model.Type):  # Better to write the slash here
         name = f"- {name}"
     return name
 
