@@ -353,9 +353,9 @@
 		(= (load driver) 0)
 		(= (max-load driver) 15)
 
-		; (destination box1 cadiz)
-		(destination box2 almeria)
-		; (destination box3 malaga)
+		(destination box1 almeria)
+		(destination box2 malaga)
+		; (destination box3 almeria)
 
 		(= (weight box1) 2)
 		(= (weight box2) 3)
