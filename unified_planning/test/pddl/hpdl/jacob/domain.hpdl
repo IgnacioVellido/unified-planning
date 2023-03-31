@@ -7,7 +7,7 @@
     (:types
         TaskSymbol
         TaskInstanceSymbol
-        TipoAccion
+        TypeAction
         Driver
         context
 
@@ -19,7 +19,7 @@
     ; CONSTANTS
     ; =========================================================================
     (:constants
-        typeD typeO typeB typeI - TipoAccion
+        typeD typeO typeB typeI - TypeAction
 
         ; Contexts
         yes no                              ; Legal
@@ -39,8 +39,8 @@
     ; PREDICATES
     ; =========================================================================
     (:predicates
-        (modo_generar)
-        (modo_reconocer)
+        (generation_mode)
+        (analysis_mode)
 
         ; Contexts
         (legal-context ?legalctxt - context)
@@ -248,14 +248,14 @@
     (:derived (dr_in_less_than_24)
         (or
             (and
-                (modo_generar)
+                (generation_mode)
                 ; Compare with last WR
                 (< (+ (actual-timestamp) 660) ; 11h
                     (+ (* 6 (* 24 (hours_in_mins))) (last_wr))
                 )
             )
             (and
-                (modo_reconocer)
+                (analysis_mode)
                 ; Compare with last DR
                 (<= (actual-timestamp)
                     (+ (* 24 (hours_in_mins)) (last_dr))
@@ -267,9 +267,9 @@
     ; To check if a WR is taken each "week" (6 x 24h)
     (:derived (wr_in_less_than_6_24)
         (or
-            (modo_generar)
+            (generation_mode)
             (and
-                (modo_reconocer)
+                (analysis_mode)
                 ; Compare with last DR
                 (<= (actual-timestamp)
                     (+ (* 6 (* 24 (hours_in_mins))) (last_dr))
@@ -551,7 +551,7 @@
         ; --------------------------------------------------------------
 
         ; Don't tag a type of day, but try at least find the sequence
-        ; Should also work in (modo_generar)
+        ; Should also work in (generation_mode)
         (:method cdd
             :precondition (and
                 (bind ?k (current_index_action));calcula el valor de index
@@ -1068,7 +1068,7 @@
         )
 
         ; To don't make illegal last unfinished sequence
-        (:method fin_secuencia_entrada
+        (:method input_end
             :precondition (and
                 (bind ?k (current_index_action));calcula el valor del  index ACTUAL
                 (not (index_action ?una_accion - TaskInstanceSymbol ?k));comprueba que no  hay alguna accion con index+1 asociado
@@ -1077,8 +1077,8 @@
                 ; Zenotravel
                 (:inline ()
                     (and
-                        (not (modo_reconocer))
-                        (modo_generar)
+                        (not (analysis_mode))
+                        (generation_mode)
                     )
                 )
                 (A ?d)
@@ -1323,7 +1323,7 @@
     ; Recognizes a sequence of Activities (D|O|B|I) such that dur(B)< 15mins
     (:task A
         :parameters (?d - Driver) 
-        (:method recurrir
+        (:method recursive
             :precondition (and
                 (bind ?k (current_index_action));calcula el valor de index
                 (index_action ?una_accion - TaskInstanceSymbol ?k);comprueba si hay alguna accion con index asociado
@@ -1347,7 +1347,7 @@
 
         ; Start Zenotravel actions
         (:method transport
-            :precondition (and (modo_generar) (destination ?b - box ?c - city))
+            :precondition (and (generation_mode) (destination ?b - box ?c - city))
             :tasks (
                 (transport ?d)
             )
@@ -1366,7 +1366,7 @@
         ) 
         
         ; aquí se acabó la secuencia de acciones, cuando sale por aquí se le ha acabado la secuencia y CORRECTO Y DEBE TERMINAR
-        (:method fin_secuencia_entrada
+        (:method input_end
             :precondition (and
                 (bind ?k (current_index_action));calcula el valor del  index ACTUAL
                 (not (index_action ?una_accion - TaskInstanceSymbol ?k));comprueba que no  hay alguna accion con index+1 asociado
@@ -1470,8 +1470,8 @@
 
     (:task D
         :parameters (?d - Driver ?dur - number)
-        (:method modo_reconocer
-            :precondition (modo_reconocer)
+        (:method analysis_mode
+            :precondition (analysis_mode)
             :tasks (
                 (add_the_current_action_to_plan typeD ?dur)
                 
@@ -1482,8 +1482,8 @@
         )
 
         ; Zenotravel
-        (:method modo_generar
-            :precondition (modo_generar)
+        (:method generation_mode
+            :precondition (generation_mode)
             :tasks (
                 ;captura el contexto
                 (:inline
@@ -1521,8 +1521,8 @@
 
     (:task O
         :parameters (?d - Driver ?dur - number)
-        (:method modo_reconocer
-            :precondition (modo_reconocer)
+        (:method analysis_mode
+            :precondition (analysis_mode)
             :tasks (
                 (add_the_current_action_to_plan typeO ?dur)
                 
@@ -1534,8 +1534,8 @@
 
     (:task B
         :parameters (?d - Driver ?dur - number)        
-        (:method modo_reconocer
-            :precondition (modo_reconocer)
+        (:method analysis_mode
+            :precondition (analysis_mode)
             :tasks (
                 (add_the_current_action_to_plan typeB ?dur)
 
@@ -1544,8 +1544,8 @@
             )
         )
 
-        (:method modo_generar
-            :precondition (modo_generar)
+        (:method generation_mode
+            :precondition (generation_mode)
             :tasks (
                 ;captura el contexto
                 (:inline
@@ -1589,7 +1589,7 @@
             )
         )
 
-        (:method fin_secuencia_entrada
+        (:method input_end
             :precondition (and
                 (bind ?k (current_index_action));calcula el valor del  index ACTUAL
                 (not (index_action ?una_accion - TaskInstanceSymbol ?k));comprueba que no  hay alguna accion con index+1 asociado
@@ -1602,8 +1602,8 @@
 
     (:task I
         :parameters (?d - Driver ?dur - number)
-        (:method modo_reconocer
-            :precondition (modo_reconocer)
+        (:method analysis_mode
+            :precondition (analysis_mode)
             :tasks (
                 (add_the_current_action_to_plan typeI ?dur)
 
@@ -1616,7 +1616,7 @@
     ; -------------------------------------------------------------------------
 
     (:task add_the_current_action_to_plan
-        :parameters (?tact - TipoAccion ?dur - number) ;(!
+        :parameters (?tact - TypeAction ?dur - number) ;(!
         (:method type_Driving
             ; captura el indice actual de la secuencia de acciones y el simbolo de accion asociado
             ; si en la secuencia de entrada hay una accion typeD y "me espero" una acción typeD
