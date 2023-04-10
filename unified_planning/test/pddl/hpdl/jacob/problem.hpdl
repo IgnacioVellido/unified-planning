@@ -19,8 +19,8 @@
 	)
 	(:init
 		; Problem task: Recognize or Generate
-		; (modo_generar)
-		(modo_reconocer)
+		; (generation_mode)
+		(analysis_mode)
 		(= (preference_dd) 0)
 		(= (preference_cdd) 0)
 
