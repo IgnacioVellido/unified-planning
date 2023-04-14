@@ -1514,7 +1514,7 @@
                     ()
                 )
 
-                (D_suggested ?d ?dur ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt)
+                (d_suggested ?d ?dur ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt)
             )
         )
     )
@@ -1585,7 +1585,7 @@
                     ()
                 )
 
-                (B_suggested ?d ?dur ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt)
+                (b_suggested ?d ?dur ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt)
             )
         )
 
@@ -1664,7 +1664,7 @@
                 ; (
                     ; Not needed?
                     ; (and (= ?start ?inicio) (= ?end ?final) (= ?duration ?dur))
-                    (D_p ?driver ?dur ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt)
+                    (d_p ?driver ?dur ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt)
                 ; )
 
                 ; Set legal context
@@ -1723,7 +1723,7 @@
                 ; (
                     ; Not needed?
                     ; (and (= ?start ?inicio) (= ?end ?final) (= ?duration ?dur))
-                    (O_p ?driver ?dur ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt)
+                    (o_p ?driver ?dur ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt)
                 ; )
 
                 ; Set legal context
@@ -1781,7 +1781,7 @@
                 ; (
                     ; Not needed?
                     ; (and (= ?start ?inicio) (= ?end ?final) (= ?duration ?dur))
-                    (B_p ?driver ?dur ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt)
+                    (b_p ?driver ?dur ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt)
                 ; )
 
                 ; Set legal context
@@ -1840,7 +1840,7 @@
                 ; (
                     ; Not needed?
                     ; (and (= ?start ?inicio) (= ?end ?final) (= ?duration ?dur))
-                    (I_p ?driver ?dur ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt)
+                    (i_p ?driver ?dur ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt)
                 ; )
 
                 ; Set legal context
@@ -2446,7 +2446,7 @@
     ; =========================================================================
 
     ; DRIVING
-    (:durative-action D_p
+    (:durative-action d_p
         :parameters (?d - Driver ?dur - number ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt  - context)
         ; :meta ((:tag prettyprint "?d,?start,?end,?duration,Driving,?weekcount,?daycount,?dayctxt,?seqctxt,?drivctxt,?tkctxt,?legalctxt"))
         :duration (= ?duration ?dur)
@@ -2457,7 +2457,7 @@
     ; -------------------------------------------------------------------------
 
     ; OTHER WORK
-    (:durative-action O_p
+    (:durative-action o_p
         :parameters (?d - Driver ?dur - number ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt  - context)
         ; :meta ((:tag prettyprint "?d,?start,?end,?duration,Other,?weekcount,?daycount,?dayctxt,?seqctxt,?drivctxt,?tkctxt,?legalctxt"))
         :duration (= ?duration ?dur)
@@ -2468,7 +2468,7 @@
     ; -------------------------------------------------------------------------
 
     ; BREAK
-    (:durative-action B_p
+    (:durative-action b_p
         :parameters (?d - Driver ?dur - number ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt  - context)
         ; :meta ((:tag prettyprint "?d,?start,?end,?duration,Break,?weekcount,?daycount,?dayctxt,?seqctxt,?drivctxt,?tkctxt,?legalctxt"))
         :duration (= ?duration ?dur)
@@ -2479,7 +2479,7 @@
     ; -------------------------------------------------------------------------
 
     ; IDLE
-    (:durative-action I_p
+    (:durative-action i_p
         :parameters (?d - Driver ?dur - number ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt  - context)
         ; :meta ((:tag prettyprint "?d,?start,?end,?duration,Idle,?weekcount,?daycount,?dayctxt	?seqctxt,?drivctxt,?tkctxt,?legalctxt"))
         :duration (= ?duration ?dur)
@@ -2596,7 +2596,7 @@
     ; -------------------------------------------------------------------------
 
     ; Could be OtherWork too
-    (:durative-action D_suggested
+    (:durative-action d_suggested
         :parameters (?d - Driver ?dur - number ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt  - context)
         ; :meta ((:tag prettyprint "?d	?start	?end	?duration	Sug-Driving	?weekcount	?daycount	?dayctxt	?seqctxt	?drivctxt	?tkctxt	?legalctxt"))
         :duration (= ?duration ?dur)
@@ -2606,7 +2606,7 @@
 
     ; -------------------------------------------------------------------------
 
-    (:durative-action B_suggested
+    (:durative-action b_suggested
         :parameters (?d - Driver ?dur - number ?tkctxt ?drivctxt ?seqctxt ?dayctxt ?weekcount ?daycount ?legalctxt  - context)
         ; :meta ((:tag prettyprint "?d	?start	?end	?duration	Sug-Break	?weekcount	?daycount	?dayctxt	?seqctxt	?drivctxt	?tkctxt	?legalctxt"))
         :duration (= ?duration ?dur)
